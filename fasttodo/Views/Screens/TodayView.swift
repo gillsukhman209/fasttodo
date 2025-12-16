@@ -1,20 +1,22 @@
 import SwiftUI
+import SwiftData
 
 struct TodayView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \TodoItem.createdAt, order: .reverse) private var tasks: [TodoItem]
+
     @State private var inputText: String = ""
     @State private var isDarkMode: Bool = true
 
-    // Placeholder tasks
-    private var tasks: [TaskModel] {
-        [
-            TaskModel(title: "Morning workout", time: "6:30 AM", isRecurring: true),
-            TaskModel(title: "Review design mockups", time: "10:00 AM", isRecurring: false),
-            TaskModel(title: "Team standup", time: "11:00 AM", isRecurring: true),
-            TaskModel(title: "Lunch with Sarah", time: "1:00 PM", isRecurring: false),
-            TaskModel(title: "Call mom", time: "7:00 PM", isRecurring: false),
-            TaskModel(title: "Buy groceries", time: nil, isRecurring: false),
-            TaskModel(title: "Read 20 pages", time: nil, isRecurring: false),
-        ]
+    private let parser = NaturalLanguageParser()
+
+    // Computed properties for stats
+    private var completedCount: Int {
+        tasks.filter { $0.isCompleted }.count
+    }
+
+    private var incompleteTasks: [TodoItem] {
+        tasks.filter { !$0.isCompleted }
     }
 
     var body: some View {
@@ -28,7 +30,7 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     // Header
-                    HeaderView(completed: 3, total: tasks.count, isDarkMode: $isDarkMode)
+                    HeaderView(completed: completedCount, total: tasks.count, isDarkMode: $isDarkMode)
 
                     // Divider
                     Rectangle()
@@ -37,25 +39,48 @@ struct TodayView: View {
                         .padding(.horizontal, Theme.Space.lg)
 
                     // Tasks section
-                    VStack(spacing: 0) {
-                        // Section header
-                        HStack {
-                            SectionLabel("Tasks", count: tasks.count)
-                            Spacer()
+                    if tasks.isEmpty {
+                        // Empty state
+                        VStack(spacing: Theme.Space.lg) {
+                            Spacer().frame(height: 60)
+
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 48, weight: .light))
+                                .foregroundStyle(Theme.Colors.textMuted)
+
+                            Text("No tasks yet")
+                                .font(Theme.Fonts.title)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+
+                            Text("Add your first task below")
+                                .font(Theme.Fonts.caption)
+                                .foregroundStyle(Theme.Colors.textMuted)
                         }
-                        .padding(.horizontal, Theme.Space.lg)
-                        .padding(.top, Theme.Space.lg)
-                        .padding(.bottom, Theme.Space.md)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, Theme.Space.xl)
+                    } else {
+                        VStack(spacing: 0) {
+                            // Section header
+                            HStack {
+                                SectionLabel("Tasks", count: incompleteTasks.count)
+                                Spacer()
+                            }
+                            .padding(.horizontal, Theme.Space.lg)
+                            .padding(.top, Theme.Space.lg)
+                            .padding(.bottom, Theme.Space.md)
 
-                        // Task list
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
-                                TaskItem(task: task)
+                            // Task list
+                            LazyVStack(spacing: 0) {
+                                ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                                    TaskItem(task: task) {
+                                        deleteTask(task)
+                                    }
 
-                                if index < tasks.count - 1 {
-                                    Divider()
-                                        .background(Theme.Colors.border)
-                                        .padding(.leading, 56)
+                                    if index < tasks.count - 1 {
+                                        Divider()
+                                            .background(Theme.Colors.border)
+                                            .padding(.leading, 56)
+                                    }
                                 }
                             }
                         }
@@ -82,15 +107,43 @@ struct TodayView: View {
                 .frame(height: 40)
                 .allowsHitTesting(false)
 
-                InputBar(text: $inputText)
+                InputBar(text: $inputText, onSubmit: addTask)
                     .padding(.bottom, Theme.Space.md)
                     .background(Theme.Colors.bg)
             }
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
     }
+
+    // MARK: - Actions
+
+    private func addTask() {
+        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        let parsed = parser.parse(inputText)
+
+        let newTask = TodoItem(
+            title: parsed.title,
+            rawInput: inputText,
+            scheduledDate: parsed.scheduledDate,
+            hasSpecificTime: parsed.hasSpecificTime,
+            recurrenceRule: parsed.recurrenceRule
+        )
+
+        withAnimation(.spring(response: 0.3)) {
+            modelContext.insert(newTask)
+            inputText = ""
+        }
+    }
+
+    private func deleteTask(_ task: TodoItem) {
+        withAnimation(.spring(response: 0.3)) {
+            modelContext.delete(task)
+        }
+    }
 }
 
 #Preview {
     TodayView()
+        .modelContainer(for: TodoItem.self, inMemory: true)
 }

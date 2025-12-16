@@ -2,6 +2,8 @@ import SwiftUI
 
 struct InputBar: View {
     @Binding var text: String
+    var onSubmit: (() -> Void)?
+
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -66,10 +68,7 @@ struct InputBar: View {
 
     private func submitAction() {
         guard !text.isEmpty else { return }
-        // Handle submission
-        withAnimation(.spring(response: 0.3)) {
-            text = ""
-        }
+        onSubmit?()
         isFocused = false
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }

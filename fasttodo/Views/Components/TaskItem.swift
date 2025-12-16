@@ -1,57 +1,67 @@
 import SwiftUI
-
-// MARK: - Task Model
-
-struct TaskModel: Identifiable {
-    let id = UUID()
-    let title: String
-    let time: String?
-    let isRecurring: Bool
-}
+import SwiftData
 
 // MARK: - Task Item (Minimalist + Swipeable)
 
 struct TaskItem: View {
-    let task: TaskModel
-    @State private var isCompleted: Bool = false
+    @Bindable var task: TodoItem
+    var onDelete: (() -> Void)?
+
     @State private var offset: CGFloat = 0
     @State private var isSwiping: Bool = false
 
-    private let swipeThreshold: CGFloat = 80
+    private let completeThreshold: CGFloat = 80
+    private let deleteThreshold: CGFloat = -80
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            // Swipe reveal background
+        ZStack {
+            // Swipe reveal backgrounds
             HStack {
+                // Complete (swipe right)
                 ZStack {
                     Circle()
                         .fill(Theme.Colors.success)
                         .frame(width: 32, height: 32)
-                        .scaleEffect(offset > swipeThreshold / 2 ? 1 : 0.5)
+                        .scaleEffect(offset > completeThreshold / 2 ? 1 : 0.5)
                         .opacity(offset > 20 ? 1 : 0)
 
                     Image(systemName: "checkmark")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.white)
-                        .opacity(offset > swipeThreshold / 2 ? 1 : 0)
+                        .opacity(offset > completeThreshold / 2 ? 1 : 0)
                 }
                 .padding(.leading, Theme.Space.lg)
 
                 Spacer()
+
+                // Delete (swipe left)
+                ZStack {
+                    Circle()
+                        .fill(Theme.Colors.error)
+                        .frame(width: 32, height: 32)
+                        .scaleEffect(offset < deleteThreshold / 2 ? 1 : 0.5)
+                        .opacity(offset < -20 ? 1 : 0)
+
+                    Image(systemName: "trash")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .opacity(offset < deleteThreshold / 2 ? 1 : 0)
+                }
+                .padding(.trailing, Theme.Space.lg)
             }
 
             // Main content
             HStack(spacing: Theme.Space.md) {
                 // Tap target circle
-                Button(action: completeTask) {
+                Button(action: toggleComplete) {
                     Circle()
                         .stroke(
-                            isCompleted ? Theme.Colors.success : Theme.Colors.textMuted,
+                            task.isCompleted ? Theme.Colors.success : Theme.Colors.textMuted,
                             lineWidth: 2
                         )
                         .frame(width: 24, height: 24)
                         .overlay {
-                            if isCompleted {
+                            if task.isCompleted {
                                 Circle()
                                     .fill(Theme.Colors.success)
                                     .frame(width: 24, height: 24)
@@ -67,12 +77,12 @@ struct TaskItem: View {
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
                     Text(task.title)
                         .font(Theme.Fonts.body)
-                        .foregroundStyle(isCompleted ? Theme.Colors.textMuted : Theme.Colors.textPrimary)
-                        .strikethrough(isCompleted, color: Theme.Colors.textMuted)
+                        .foregroundStyle(task.isCompleted ? Theme.Colors.textMuted : Theme.Colors.textPrimary)
+                        .strikethrough(task.isCompleted, color: Theme.Colors.textMuted)
 
-                    if let time = task.time {
+                    if let displayDate = task.displayDate {
                         HStack(spacing: Theme.Space.xs) {
-                            Text(time)
+                            Text(displayDate)
                                 .font(Theme.Fonts.caption)
                                 .foregroundStyle(Theme.Colors.accent)
 
@@ -94,14 +104,23 @@ struct TaskItem: View {
             .gesture(
                 DragGesture()
                     .onChanged { value in
-                        if value.translation.width > 0 && !isCompleted {
-                            offset = value.translation.width
+                        let translation = value.translation.width
+                        // Allow swipe right (complete) only if not completed
+                        // Allow swipe left (delete) always
+                        if translation > 0 && !task.isCompleted {
+                            offset = translation
+                            isSwiping = true
+                        } else if translation < 0 {
+                            offset = translation
                             isSwiping = true
                         }
                     }
                     .onEnded { value in
-                        if value.translation.width > swipeThreshold {
-                            completeTask()
+                        let translation = value.translation.width
+                        if translation > completeThreshold {
+                            toggleComplete()
+                        } else if translation < deleteThreshold {
+                            deleteTask()
                         }
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             offset = 0
@@ -110,15 +129,20 @@ struct TaskItem: View {
                     }
             )
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isCompleted)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: task.isCompleted)
         .animation(.spring(response: 0.2), value: offset)
     }
 
-    private func completeTask() {
+    private func toggleComplete() {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-            isCompleted.toggle()
+            task.toggleCompletion()
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    private func deleteTask() {
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        onDelete?()
     }
 }
 
@@ -154,18 +178,33 @@ struct SectionLabel: View {
         Theme.Colors.bg.ignoresSafeArea()
 
         VStack(spacing: 0) {
-            SectionLabel("Today", count: 5)
+            SectionLabel("Today", count: 3)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal)
                 .padding(.bottom, Theme.Space.sm)
 
             VStack(spacing: 1) {
-                TaskItem(task: TaskModel(title: "Morning workout", time: "6:30 AM", isRecurring: true))
+                TaskItem(task: TodoItem(
+                    title: "Morning workout",
+                    rawInput: "Morning workout at 6:30am",
+                    scheduledDate: Calendar.current.date(bySettingHour: 6, minute: 30, second: 0, of: Date()),
+                    hasSpecificTime: true,
+                    recurrenceRule: .daily
+                ))
                 Divider().background(Theme.Colors.border).padding(.leading, 56)
-                TaskItem(task: TaskModel(title: "Call mom", time: "7:00 PM", isRecurring: false))
+                TaskItem(task: TodoItem(
+                    title: "Call mom",
+                    rawInput: "Call mom at 7pm",
+                    scheduledDate: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date()),
+                    hasSpecificTime: true
+                ))
                 Divider().background(Theme.Colors.border).padding(.leading, 56)
-                TaskItem(task: TaskModel(title: "Buy groceries", time: nil, isRecurring: false))
+                TaskItem(task: TodoItem(
+                    title: "Buy groceries",
+                    rawInput: "Buy groceries"
+                ))
             }
         }
     }
+    .modelContainer(for: TodoItem.self, inMemory: true)
 }

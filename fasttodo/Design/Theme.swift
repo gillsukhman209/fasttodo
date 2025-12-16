@@ -45,6 +45,9 @@ enum Theme {
         // Success
         static let success = Color(hex: "32D74B")
 
+        // Error
+        static let error = Color(hex: "FF453A")
+
         // Borders
         static var border: Color {
             isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06)
