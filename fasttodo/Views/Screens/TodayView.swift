@@ -8,6 +8,10 @@ struct TodayView: View {
     @State private var inputText: String = ""
     @State private var isDarkMode: Bool = true
     @State private var taskToEdit: TodoItem?
+    @State private var showUndoToast: Bool = false
+    @State private var pendingDeleteTask: TodoItem?
+    @State private var showCelebration: Bool = false
+    @State private var previousIncompleteCount: Int = 0
 
     private let parser = NaturalLanguageParser()
 
@@ -17,7 +21,11 @@ struct TodayView: View {
     }
 
     private var incompleteTasks: [TodoItem] {
-        tasks.filter { !$0.isCompleted }
+        tasks.filter { !$0.isCompleted && $0.id != pendingDeleteTask?.id }
+    }
+
+    private var visibleTasks: [TodoItem] {
+        tasks.filter { $0.id != pendingDeleteTask?.id }
     }
 
     var body: some View {
@@ -40,7 +48,7 @@ struct TodayView: View {
                         .padding(.horizontal, Theme.Space.lg)
 
                     // Tasks section
-                    if tasks.isEmpty {
+                    if visibleTasks.isEmpty {
                         // Empty state
                         VStack(spacing: Theme.Space.lg) {
                             Spacer().frame(height: 60)
@@ -72,14 +80,15 @@ struct TodayView: View {
 
                             // Task list
                             LazyVStack(spacing: 0) {
-                                ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                                ForEach(Array(visibleTasks.enumerated()), id: \.element.id) { index, task in
                                     TaskItem(
                                         task: task,
                                         onDelete: { deleteTask(task) },
-                                        onEdit: { taskToEdit = task }
+                                        onEdit: { taskToEdit = task },
+                                        animationIndex: index
                                     )
 
-                                    if index < tasks.count - 1 {
+                                    if index < visibleTasks.count - 1 {
                                         Divider()
                                             .background(Theme.Colors.border)
                                             .padding(.leading, 56)
@@ -96,7 +105,7 @@ struct TodayView: View {
             }
             .scrollIndicators(.hidden)
 
-            // Input bar
+            // Input bar + Undo toast
             VStack(spacing: 0) {
                 // Gradient fade
                 LinearGradient(
@@ -110,6 +119,17 @@ struct TodayView: View {
                 .frame(height: 40)
                 .allowsHitTesting(false)
 
+                // Undo toast
+                if showUndoToast {
+                    UndoToast(
+                        message: "Task deleted",
+                        onUndo: undoDelete,
+                        onDismiss: confirmDelete
+                    )
+                    .padding(.bottom, Theme.Space.sm)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 InputBar(text: $inputText, onSubmit: addTask)
                     .padding(.bottom, Theme.Space.md)
                     .background(Theme.Colors.bg)
@@ -120,6 +140,24 @@ struct TodayView: View {
             TaskEditSheet(task: task)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .overlay {
+            if showCelebration {
+                CelebrationView {
+                    withAnimation {
+                        showCelebration = false
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .onChange(of: incompleteTasks.count) { oldValue, newValue in
+            // Celebrate when going from >0 to 0 incomplete tasks
+            if oldValue > 0 && newValue == 0 && !tasks.isEmpty {
+                withAnimation {
+                    showCelebration = true
+                }
+            }
         }
     }
 
@@ -145,8 +183,29 @@ struct TodayView: View {
     }
 
     private func deleteTask(_ task: TodoItem) {
+        // Store task for potential undo
+        pendingDeleteTask = task
+
+        // Hide the task visually (mark as pending delete)
         withAnimation(.spring(response: 0.3)) {
-            modelContext.delete(task)
+            showUndoToast = true
+        }
+    }
+
+    private func undoDelete() {
+        withAnimation(.spring(response: 0.3)) {
+            pendingDeleteTask = nil
+            showUndoToast = false
+        }
+    }
+
+    private func confirmDelete() {
+        if let task = pendingDeleteTask {
+            withAnimation(.spring(response: 0.3)) {
+                modelContext.delete(task)
+                pendingDeleteTask = nil
+                showUndoToast = false
+            }
         }
     }
 }

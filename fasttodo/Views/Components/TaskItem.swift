@@ -7,9 +7,11 @@ struct TaskItem: View {
     @Bindable var task: TodoItem
     var onDelete: (() -> Void)?
     var onEdit: (() -> Void)?
+    var animationIndex: Int = 0
 
     @State private var offset: CGFloat = 0
     @State private var isSwiping: Bool = false
+    @State private var hasAppeared: Bool = false
 
     private let completeThreshold: CGFloat = 80
     private let deleteThreshold: CGFloat = -80
@@ -134,8 +136,16 @@ struct TaskItem: View {
                 onEdit?()
             }
         }
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 20)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: task.isCompleted)
         .animation(.spring(response: 0.2), value: offset)
+        .onAppear {
+            let delay = Double(animationIndex) * 0.05
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8).delay(delay)) {
+                hasAppeared = true
+            }
+        }
     }
 
     private func toggleComplete() {
