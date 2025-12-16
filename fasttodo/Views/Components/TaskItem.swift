@@ -6,6 +6,7 @@ import SwiftData
 struct TaskItem: View {
     @Bindable var task: TodoItem
     var onDelete: (() -> Void)?
+    var onEdit: (() -> Void)?
 
     @State private var offset: CGFloat = 0
     @State private var isSwiping: Bool = false
@@ -128,6 +129,10 @@ struct TaskItem: View {
                         }
                     }
             )
+            .onLongPressGesture(minimumDuration: 0.5) {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                onEdit?()
+            }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: task.isCompleted)
         .animation(.spring(response: 0.2), value: offset)

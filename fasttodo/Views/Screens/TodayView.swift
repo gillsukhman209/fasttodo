@@ -7,6 +7,7 @@ struct TodayView: View {
 
     @State private var inputText: String = ""
     @State private var isDarkMode: Bool = true
+    @State private var taskToEdit: TodoItem?
 
     private let parser = NaturalLanguageParser()
 
@@ -72,9 +73,11 @@ struct TodayView: View {
                             // Task list
                             LazyVStack(spacing: 0) {
                                 ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
-                                    TaskItem(task: task) {
-                                        deleteTask(task)
-                                    }
+                                    TaskItem(
+                                        task: task,
+                                        onDelete: { deleteTask(task) },
+                                        onEdit: { taskToEdit = task }
+                                    )
 
                                     if index < tasks.count - 1 {
                                         Divider()
@@ -113,6 +116,11 @@ struct TodayView: View {
             }
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
+        .sheet(item: $taskToEdit) { task in
+            TaskEditSheet(task: task)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Actions
