@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
@@ -242,6 +243,10 @@ struct TodayView: View {
 
         // Schedule notification if task has specific time
         NotificationService.shared.scheduleNotification(for: newTask)
+
+        // Save and refresh widget immediately
+        try? modelContext.save()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func deleteTask(_ task: TodoItem) {
@@ -277,6 +282,10 @@ struct TodayView: View {
                 pendingDeleteTask = nil
                 showUndoToast = false
             }
+
+            // Save and refresh widget immediately
+            try? modelContext.save()
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 

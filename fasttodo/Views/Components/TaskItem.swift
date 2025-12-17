@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 // MARK: - Drag Handle (6 dots)
 
@@ -28,6 +29,7 @@ struct DragHandle: View {
 
 struct TaskItem: View {
     @Bindable var task: TodoItem
+    @Environment(\.modelContext) private var modelContext
     var onDelete: (() -> Void)?
     var onEdit: (() -> Void)?
     var isDragging: Bool = false
@@ -251,6 +253,10 @@ struct TaskItem: View {
             // Task was uncompleted - reschedule notification if applicable
             NotificationService.shared.scheduleNotification(for: task)
         }
+
+        // Save and refresh widget immediately
+        try? modelContext.save()
+        WidgetCenter.shared.reloadAllTimelines()
 
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }

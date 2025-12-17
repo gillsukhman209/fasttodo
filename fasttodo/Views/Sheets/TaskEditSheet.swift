@@ -1,9 +1,11 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 struct TaskEditSheet: View {
     @Bindable var task: TodoItem
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @State private var title: String = ""
     @State private var selectedDate: Date = Date()
@@ -218,6 +220,10 @@ struct TaskEditSheet: View {
 
         // Update notification (cancel old, schedule new if applicable)
         NotificationService.shared.updateNotification(for: task)
+
+        // Save and refresh widget immediately
+        try? modelContext.save()
+        WidgetCenter.shared.reloadAllTimelines()
 
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
