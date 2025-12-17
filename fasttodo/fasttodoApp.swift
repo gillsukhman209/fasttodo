@@ -23,6 +23,11 @@ struct fasttodoApp: App {
         }
     }()
 
+    init() {
+        // Request notification permission on app launch
+        NotificationService.shared.requestPermission()
+    }
+
     var body: some Scene {
         WindowGroup {
             MainTabView()

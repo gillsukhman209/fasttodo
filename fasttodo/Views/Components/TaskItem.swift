@@ -149,9 +149,28 @@ struct TaskItem: View {
     }
 
     private func toggleComplete() {
+        let wasCompleted = task.isCompleted
+        let wasRecurring = task.isRecurring
+
         withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
             task.toggleCompletion()
         }
+
+        // Handle notifications
+        if !wasCompleted {
+            // Task was just completed
+            if wasRecurring {
+                // Recurring task: schedule notification for next occurrence
+                NotificationService.shared.scheduleNotification(for: task)
+            } else {
+                // Non-recurring: cancel the notification
+                NotificationService.shared.cancelNotification(for: task.id)
+            }
+        } else {
+            // Task was uncompleted - reschedule notification if applicable
+            NotificationService.shared.scheduleNotification(for: task)
+        }
+
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 

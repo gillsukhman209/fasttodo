@@ -183,6 +183,9 @@ struct UpcomingView: View {
 
     private func confirmDelete() {
         if let task = pendingDeleteTask {
+            // Cancel any scheduled notification
+            NotificationService.shared.cancelNotification(for: task.id)
+
             withAnimation(.spring(response: 0.3)) {
                 modelContext.delete(task)
                 pendingDeleteTask = nil

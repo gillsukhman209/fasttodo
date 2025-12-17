@@ -194,6 +194,9 @@ struct TodayView: View {
             modelContext.insert(newTask)
             inputText = ""
         }
+
+        // Schedule notification if task has specific time
+        NotificationService.shared.scheduleNotification(for: newTask)
     }
 
     private func deleteTask(_ task: TodoItem) {
@@ -215,6 +218,9 @@ struct TodayView: View {
 
     private func confirmDelete() {
         if let task = pendingDeleteTask {
+            // Cancel any scheduled notification
+            NotificationService.shared.cancelNotification(for: task.id)
+
             withAnimation(.spring(response: 0.3)) {
                 modelContext.delete(task)
                 pendingDeleteTask = nil

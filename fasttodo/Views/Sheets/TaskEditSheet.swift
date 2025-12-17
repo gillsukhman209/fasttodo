@@ -216,6 +216,9 @@ struct TaskEditSheet: View {
         task.recurrenceRule = selectedRecurrence.rule
         task.updatedAt = Date()
 
+        // Update notification (cancel old, schedule new if applicable)
+        NotificationService.shared.updateNotification(for: task)
+
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }
