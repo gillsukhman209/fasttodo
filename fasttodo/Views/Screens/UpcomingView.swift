@@ -170,6 +170,13 @@ struct UpcomingView: View {
     // MARK: - Actions
 
     private func deleteTask(_ task: TodoItem) {
+        // If there's already a pending delete, confirm it first
+        if let existingTask = pendingDeleteTask {
+            NotificationService.shared.cancelNotification(for: existingTask.id)
+            modelContext.delete(existingTask)
+        }
+
+        // Store new task for potential undo
         pendingDeleteTask = task
         withAnimation(.spring(response: 0.3)) {
             showUndoToast = true

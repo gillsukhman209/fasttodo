@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import Combine
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
@@ -13,7 +12,6 @@ struct TodayView: View {
     @State private var pendingDeleteTask: TodoItem?
     @State private var showCelebration: Bool = false
     @State private var previousIncompleteCount: Int = 0
-    @State private var keyboardHeight: CGFloat = 0
 
     private let parser = NaturalLanguageParser()
 
@@ -45,97 +43,73 @@ struct TodayView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Background
-            Theme.Colors.bg
-                .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.3), value: isDarkMode)
+        ScrollView {
+            VStack(spacing: 0) {
+                // Header
+                HeaderView(completed: completedCount, total: todayTasks.count, isDarkMode: $isDarkMode)
 
-            // Main content
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Header
-                    HeaderView(completed: completedCount, total: todayTasks.count, isDarkMode: $isDarkMode)
+                // Divider
+                Rectangle()
+                    .fill(Theme.Colors.border)
+                    .frame(height: 1)
+                    .padding(.horizontal, Theme.Space.lg)
 
-                    // Divider
-                    Rectangle()
-                        .fill(Theme.Colors.border)
-                        .frame(height: 1)
-                        .padding(.horizontal, Theme.Space.lg)
+                // Tasks section
+                if visibleTasks.isEmpty {
+                    // Empty state
+                    VStack(spacing: Theme.Space.lg) {
+                        Spacer().frame(height: 60)
 
-                    // Tasks section
-                    if visibleTasks.isEmpty {
-                        // Empty state
-                        VStack(spacing: Theme.Space.lg) {
-                            Spacer().frame(height: 60)
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 48, weight: .light))
+                            .foregroundStyle(Theme.Colors.textMuted)
 
-                            Image(systemName: "checkmark.circle")
-                                .font(.system(size: 48, weight: .light))
-                                .foregroundStyle(Theme.Colors.textMuted)
+                        Text("No tasks yet")
+                            .font(Theme.Fonts.title)
+                            .foregroundStyle(Theme.Colors.textSecondary)
 
-                            Text("No tasks yet")
-                                .font(Theme.Fonts.title)
-                                .foregroundStyle(Theme.Colors.textSecondary)
-
-                            Text("Add your first task below")
-                                .font(Theme.Fonts.caption)
-                                .foregroundStyle(Theme.Colors.textMuted)
+                        Text("Add your first task below")
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.Colors.textMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, Theme.Space.xl)
+                } else {
+                    VStack(spacing: 0) {
+                        // Section header
+                        HStack {
+                            SectionLabel("Tasks", count: incompleteTasks.count)
+                            Spacer()
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, Theme.Space.xl)
-                    } else {
-                        VStack(spacing: 0) {
-                            // Section header
-                            HStack {
-                                SectionLabel("Tasks", count: incompleteTasks.count)
-                                Spacer()
-                            }
-                            .padding(.horizontal, Theme.Space.lg)
-                            .padding(.top, Theme.Space.lg)
-                            .padding(.bottom, Theme.Space.md)
+                        .padding(.horizontal, Theme.Space.lg)
+                        .padding(.top, Theme.Space.lg)
+                        .padding(.bottom, Theme.Space.md)
 
-                            // Task list
-                            LazyVStack(spacing: 0) {
-                                ForEach(Array(visibleTasks.enumerated()), id: \.element.id) { index, task in
-                                    TaskItem(
-                                        task: task,
-                                        onDelete: { deleteTask(task) },
-                                        onEdit: { taskToEdit = task },
-                                        animationIndex: index
-                                    )
+                        // Task list
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(visibleTasks.enumerated()), id: \.element.id) { index, task in
+                                TaskItem(
+                                    task: task,
+                                    onDelete: { deleteTask(task) },
+                                    onEdit: { taskToEdit = task },
+                                    animationIndex: index
+                                )
 
-                                    if index < visibleTasks.count - 1 {
-                                        Divider()
-                                            .background(Theme.Colors.border)
-                                            .padding(.leading, 56)
-                                    }
+                                if index < visibleTasks.count - 1 {
+                                    Divider()
+                                        .background(Theme.Colors.border)
+                                        .padding(.leading, 56)
                                 }
                             }
                         }
                     }
-
-                    // Bottom spacing (extra when keyboard visible)
-                    Spacer()
-                        .frame(height: 120 + keyboardHeight)
                 }
             }
-            .scrollIndicators(.hidden)
-            .scrollDismissesKeyboard(.interactively)
-
-            // Input bar + Undo toast
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
             VStack(spacing: 0) {
-                // Gradient fade
-                LinearGradient(
-                    colors: [
-                        Theme.Colors.bg.opacity(0),
-                        Theme.Colors.bg
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 40)
-                .allowsHitTesting(false)
-
                 // Undo toast
                 if showUndoToast, let taskId = pendingDeleteTask?.id {
                     UndoToast(
@@ -144,16 +118,22 @@ struct TodayView: View {
                         onUndo: undoDelete,
                         onDismiss: confirmDelete
                     )
-                    .id(taskId)  // Force new instance for each delete
+                    .id(taskId)
                     .padding(.bottom, Theme.Space.sm)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
                 InputBar(text: $inputText, onSubmit: addTask)
                     .padding(.bottom, Theme.Space.md)
-                    .background(Theme.Colors.bg)
+            }
+            .background {
+                Rectangle()
+                    .fill(Theme.Colors.bg)
+                    .ignoresSafeArea(edges: .bottom)
             }
         }
+        .background(Theme.Colors.bg)
+        .animation(.easeInOut(duration: 0.3), value: isDarkMode)
         .preferredColorScheme(isDarkMode ? .dark : .light)
         .sheet(item: $taskToEdit) { task in
             TaskEditSheet(task: task)
@@ -176,18 +156,6 @@ struct TodayView: View {
                 withAnimation {
                     showCelebration = true
                 }
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
-            if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                withAnimation(.easeOut(duration: 0.25)) {
-                    keyboardHeight = frame.height
-                }
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(.easeOut(duration: 0.25)) {
-                keyboardHeight = 0
             }
         }
     }
@@ -217,10 +185,16 @@ struct TodayView: View {
     }
 
     private func deleteTask(_ task: TodoItem) {
-        // Store task for potential undo
+        // If there's already a pending delete, confirm it first
+        if let existingTask = pendingDeleteTask {
+            NotificationService.shared.cancelNotification(for: existingTask.id)
+            modelContext.delete(existingTask)
+        }
+
+        // Store new task for potential undo
         pendingDeleteTask = task
 
-        // Hide the task visually (mark as pending delete)
+        // Show the toast
         withAnimation(.spring(response: 0.3)) {
             showUndoToast = true
         }
