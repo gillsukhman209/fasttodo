@@ -64,6 +64,20 @@ struct InputBar: View {
         .padding(.horizontal, Theme.Space.md)
         .animation(.spring(response: 0.3), value: isFocused)
         .animation(.spring(response: 0.3), value: text.isEmpty)
+        .onChange(of: AppState.shared.shouldFocusInput) { _, shouldFocus in
+            if shouldFocus {
+                isFocused = true
+                AppState.shared.shouldFocusInput = false
+            }
+        }
+        .onAppear {
+            if AppState.shared.shouldFocusInput {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isFocused = true
+                    AppState.shared.shouldFocusInput = false
+                }
+            }
+        }
     }
 
     private func submitAction() {
