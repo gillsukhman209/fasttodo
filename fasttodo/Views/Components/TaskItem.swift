@@ -1,5 +1,29 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
+import UIKit
+#endif
+
+// MARK: - Haptic Feedback Helper
+
+func triggerHaptic(_ style: HapticStyle = .medium) {
+    #if os(iOS)
+    let generator: UIImpactFeedbackGenerator
+    switch style {
+    case .light:
+        generator = UIImpactFeedbackGenerator(style: .light)
+    case .medium:
+        generator = UIImpactFeedbackGenerator(style: .medium)
+    case .rigid:
+        generator = UIImpactFeedbackGenerator(style: .rigid)
+    }
+    generator.impactOccurred()
+    #endif
+}
+
+enum HapticStyle {
+    case light, medium, rigid
+}
 
 // MARK: - Drag Handle (6 dots)
 
@@ -203,11 +227,27 @@ struct TaskItem: View {
                         gestureDirection = .undetermined
                     }
             )
+            #if os(iOS)
             .onLongPressGesture(minimumDuration: 0.5) {
                 guard !isDragging else { return }
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                triggerHaptic(.medium)
                 onEdit?()
             }
+            #endif
+            #if os(macOS)
+            .contextMenu {
+                Button("Edit") {
+                    onEdit?()
+                }
+                Button(task.isCompleted ? "Mark Incomplete" : "Mark Complete") {
+                    toggleComplete()
+                }
+                Divider()
+                Button("Delete", role: .destructive) {
+                    deleteTask()
+                }
+            }
+            #endif
         }
         .scaleEffect(isDragging ? 1.03 : 1.0)
         .opacity(isDragging ? 0.9 : (hasAppeared ? 1 : 0))
@@ -252,11 +292,11 @@ struct TaskItem: View {
             NotificationService.shared.scheduleNotification(for: task)
         }
 
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        triggerHaptic(.medium)
     }
 
     private func deleteTask() {
-        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        triggerHaptic(.rigid)
         onDelete?()
     }
 }

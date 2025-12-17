@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
+import UIKit
+#endif
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
@@ -281,7 +284,9 @@ struct TodayView: View {
     }
 
     private func hideKeyboard() {
+        #if os(iOS)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
     }
 
     // MARK: - Drag and Drop
@@ -293,7 +298,7 @@ struct TodayView: View {
             draggingTask = task
             dragSourceIndex = index
             currentDragIndex = index
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            triggerHaptic(.medium)
         }
 
         dragOffset = offset
@@ -305,7 +310,7 @@ struct TodayView: View {
 
         if newTarget != currentDragIndex {
             currentDragIndex = newTarget
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            triggerHaptic(.light)
         }
     }
 

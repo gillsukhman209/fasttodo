@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct InputBar: View {
     @Binding var text: String
@@ -69,11 +72,13 @@ struct InputBar: View {
     private func submitAction() {
         guard !text.isEmpty else { return }
         onSubmit?()
+        #if os(iOS)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // Re-focus after a brief delay to keep keyboard open
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             isFocused = true
         }
+        #endif
     }
 }
 

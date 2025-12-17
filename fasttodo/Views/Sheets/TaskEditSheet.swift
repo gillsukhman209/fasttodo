@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
+import UIKit
+#endif
 
 struct TaskEditSheet: View {
     @Bindable var task: TodoItem
@@ -123,7 +126,9 @@ struct TaskEditSheet: View {
                                         selection: $selectedDate,
                                         displayedComponents: .hourAndMinute
                                     )
+                                    #if os(iOS)
                                     .datePickerStyle(.wheel)
+                                    #endif
                                     .labelsHidden()
                                     .tint(Theme.Colors.accent)
                                     .padding(Theme.Space.md)
@@ -177,7 +182,9 @@ struct TaskEditSheet: View {
                 }
             }
             .navigationTitle("Edit Task")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -219,7 +226,9 @@ struct TaskEditSheet: View {
         // Update notification (cancel old, schedule new if applicable)
         NotificationService.shared.updateNotification(for: task)
 
+        #if os(iOS)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 }
 

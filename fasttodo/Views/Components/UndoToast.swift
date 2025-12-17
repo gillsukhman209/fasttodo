@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct UndoToast: View {
     let message: String
@@ -19,7 +22,9 @@ struct UndoToast: View {
 
             Button(action: {
                 dismissTask?.cancel()
+                #if os(iOS)
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
                 onUndo()
             }) {
                 Text("Undo")
