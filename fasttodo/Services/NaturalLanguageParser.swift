@@ -34,8 +34,11 @@ final class NaturalLanguageParser {
             return ParsedInput(title: "", scheduledDate: nil, hasSpecificTime: false, recurrenceRule: nil)
         }
 
+        // Step 0: Handle "remind" shortcut - strip it and parse the rest
+        let processedInput = stripRemindPrefix(from: trimmed)
+
         // Step 1: Extract recurrence first
-        let (inputAfterRecurrence, recurrence) = extractRecurrence(from: trimmed)
+        let (inputAfterRecurrence, recurrence) = extractRecurrence(from: processedInput)
 
         // Step 2: Extract date/time
         let (inputAfterDate, date, hasTime) = extractDateTime(from: inputAfterRecurrence)
@@ -55,6 +58,38 @@ final class NaturalLanguageParser {
             hasSpecificTime: hasTime,
             recurrenceRule: recurrence
         )
+    }
+
+    // MARK: - Remind Prefix Handling
+
+    private func stripRemindPrefix(from input: String) -> String {
+        var result = input
+
+        // Order matters - check longer patterns first
+        // Don't strip "in" - it's part of the time expression like "in 5 mins"
+        let remindPrefixes = [
+            "^remind\\s+me\\s+to\\s+",      // "remind me to call mom"
+            "^remind\\s+me\\s+",            // "remind me call mom" or "remind me in 5 mins..."
+            "^reminder\\s+to\\s+",          // "reminder to call mom"
+            "^reminder\\s+",                // "reminder call mom"
+            "^remind\\s+",                  // "remind call mom in 2 mins" (shortcut!)
+        ]
+
+        for pattern in remindPrefixes {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                let range = NSRange(result.startIndex..., in: result)
+                if regex.firstMatch(in: result, options: [], range: range) != nil {
+                    result = regex.stringByReplacingMatches(
+                        in: result,
+                        range: range,
+                        withTemplate: ""
+                    )
+                    break
+                }
+            }
+        }
+
+        return result
     }
 
     // MARK: - Recurrence Extraction
