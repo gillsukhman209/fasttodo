@@ -25,7 +25,7 @@ struct fasttodoApp: App {
 
     var body: some Scene {
         WindowGroup {
-            TodayView()
+            MainTabView()
         }
         .modelContainer(sharedModelContainer)
     }

@@ -15,17 +15,31 @@ struct TodayView: View {
 
     private let parser = NaturalLanguageParser()
 
+    // Filter for today's tasks only (no date, today, or overdue)
+    private var todayTasks: [TodoItem] {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfTomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: now)!)
+
+        return tasks.filter { task in
+            // No scheduled date = inbox/today task
+            guard let date = task.scheduledDate else { return true }
+            // Today or overdue (before tomorrow)
+            return date < startOfTomorrow
+        }
+    }
+
     // Computed properties for stats
     private var completedCount: Int {
-        tasks.filter { $0.isCompleted }.count
+        todayTasks.filter { $0.isCompleted }.count
     }
 
     private var incompleteTasks: [TodoItem] {
-        tasks.filter { !$0.isCompleted && $0.id != pendingDeleteTask?.id }
+        todayTasks.filter { !$0.isCompleted && $0.id != pendingDeleteTask?.id }
     }
 
     private var visibleTasks: [TodoItem] {
-        tasks.filter { $0.id != pendingDeleteTask?.id }
+        todayTasks.filter { $0.id != pendingDeleteTask?.id }
     }
 
     var body: some View {
@@ -39,7 +53,7 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     // Header
-                    HeaderView(completed: completedCount, total: tasks.count, isDarkMode: $isDarkMode)
+                    HeaderView(completed: completedCount, total: todayTasks.count, isDarkMode: $isDarkMode)
 
                     // Divider
                     Rectangle()
@@ -153,7 +167,7 @@ struct TodayView: View {
         }
         .onChange(of: incompleteTasks.count) { oldValue, newValue in
             // Celebrate when going from >0 to 0 incomplete tasks
-            if oldValue > 0 && newValue == 0 && !tasks.isEmpty {
+            if oldValue > 0 && newValue == 0 && !todayTasks.isEmpty {
                 withAnimation {
                     showCelebration = true
                 }
