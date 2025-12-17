@@ -1,9 +1,10 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \TodoItem.createdAt, order: .reverse) private var tasks: [TodoItem]
+    @Query(sort: \TodoItem.sortOrder, order: .reverse) private var tasks: [TodoItem]
 
     @State private var inputText: String = ""
     @State private var isDarkMode: Bool = true
@@ -12,6 +13,7 @@ struct TodayView: View {
     @State private var pendingDeleteTask: TodoItem?
     @State private var showCelebration: Bool = false
     @State private var previousIncompleteCount: Int = 0
+    @State private var draggingTask: TodoItem?
 
     private let parser = NaturalLanguageParser()
 
@@ -94,6 +96,17 @@ struct TodayView: View {
                                     onEdit: { taskToEdit = task },
                                     animationIndex: index
                                 )
+                                .opacity(draggingTask?.id == task.id ? 0.5 : 1)
+                                .onDrag {
+                                    draggingTask = task
+                                    return NSItemProvider(object: task.id.uuidString as NSString)
+                                }
+                                .onDrop(of: [.text], delegate: TaskDropDelegate(
+                                    task: task,
+                                    tasks: visibleTasks,
+                                    draggingTask: $draggingTask,
+                                    onReorder: reorderTasks
+                                ))
 
                                 if index < visibleTasks.count - 1 {
                                     Divider()
@@ -104,6 +117,10 @@ struct TodayView: View {
                         }
                     }
                 }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                hideKeyboard()
             }
         }
         .scrollIndicators(.hidden)
@@ -218,6 +235,45 @@ struct TodayView: View {
                 showUndoToast = false
             }
         }
+    }
+
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func reorderTasks(from source: TodoItem, to destination: TodoItem) {
+        guard source.id != destination.id else { return }
+
+        let sourceSortOrder = source.sortOrder
+        let destSortOrder = destination.sortOrder
+
+        withAnimation(.spring(response: 0.3)) {
+            source.sortOrder = destSortOrder
+            destination.sortOrder = sourceSortOrder
+        }
+    }
+}
+
+// MARK: - Drop Delegate
+
+struct TaskDropDelegate: DropDelegate {
+    let task: TodoItem
+    let tasks: [TodoItem]
+    @Binding var draggingTask: TodoItem?
+    let onReorder: (TodoItem, TodoItem) -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingTask = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging = draggingTask, dragging.id != task.id else { return }
+        onReorder(dragging, task)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }
 

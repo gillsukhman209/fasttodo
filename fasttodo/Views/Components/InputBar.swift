@@ -69,7 +69,7 @@ struct InputBar: View {
     private func submitAction() {
         guard !text.isEmpty else { return }
         onSubmit?()
-        isFocused = false
+        // Keep keyboard open for adding multiple tasks
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }

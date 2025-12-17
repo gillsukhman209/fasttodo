@@ -104,9 +104,15 @@ struct TaskItem: View {
             .padding(.horizontal, Theme.Space.md)
             .background(Theme.Colors.bg)
             .offset(x: offset)
-            .gesture(
-                DragGesture()
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 10)
                     .onChanged { value in
+                        let horizontal = abs(value.translation.width)
+                        let vertical = abs(value.translation.height)
+
+                        // Only swipe if horizontal movement is dominant
+                        guard horizontal > vertical else { return }
+
                         let translation = value.translation.width
                         // Allow swipe right (complete) only if not completed
                         // Allow swipe left (delete) always
@@ -120,10 +126,12 @@ struct TaskItem: View {
                     }
                     .onEnded { value in
                         let translation = value.translation.width
-                        if translation > completeThreshold {
-                            toggleComplete()
-                        } else if translation < deleteThreshold {
-                            deleteTask()
+                        if isSwiping {
+                            if translation > completeThreshold {
+                                toggleComplete()
+                            } else if translation < deleteThreshold {
+                                deleteTask()
+                            }
                         }
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             offset = 0

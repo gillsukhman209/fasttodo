@@ -24,6 +24,7 @@ final class TodoItem {
     // MARK: - Metadata
     var createdAt: Date
     var updatedAt: Date
+    var sortOrder: Int  // For manual reordering
 
     // MARK: - Computed Properties
 
@@ -86,6 +87,7 @@ final class TodoItem {
         self.completedAt = nil
         self.createdAt = Date()
         self.updatedAt = Date()
+        self.sortOrder = Int(Date().timeIntervalSince1970 * 1000)  // Default: timestamp-based
     }
 
     // MARK: - Actions
