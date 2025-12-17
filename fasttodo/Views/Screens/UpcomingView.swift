@@ -145,14 +145,16 @@ struct UpcomingView: View {
             .scrollIndicators(.hidden)
 
             // Undo toast
-            if showUndoToast {
+            if showUndoToast, let taskId = pendingDeleteTask?.id {
                 VStack {
                     Spacer()
                     UndoToast(
                         message: "Task deleted",
+                        taskId: taskId,
                         onUndo: undoDelete,
                         onDismiss: confirmDelete
                     )
+                    .id(taskId)  // Force new instance for each delete
                     .padding(.bottom, Theme.Space.xl)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))

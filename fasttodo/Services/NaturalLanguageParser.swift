@@ -168,6 +168,65 @@ final class NaturalLanguageParser {
 
         let lowercased = input.lowercased()
 
+        // Check for "in X minutes/hours" patterns first (with digits)
+        let relativeTimePattern = #"in\s+(\d+)\s*(minutes?|mins?|hours?|hrs?|seconds?|secs?)"#
+        if let regex = try? NSRegularExpression(pattern: relativeTimePattern, options: .caseInsensitive) {
+            let range = NSRange(workingInput.startIndex..., in: workingInput)
+            if let match = regex.firstMatch(in: workingInput, options: [], range: range) {
+                if let numberRange = Range(match.range(at: 1), in: workingInput),
+                   let unitRange = Range(match.range(at: 2), in: workingInput) {
+                    let number = Int(workingInput[numberRange]) ?? 0
+                    let unit = String(workingInput[unitRange]).lowercased()
+
+                    var component: Calendar.Component = .minute
+                    if unit.hasPrefix("hour") || unit.hasPrefix("hr") {
+                        component = .hour
+                    } else if unit.hasPrefix("sec") {
+                        component = .second
+                    }
+
+                    foundDate = calendar.date(byAdding: component, value: number, to: Date())
+                    hasSpecificTime = true
+
+                    if let fullRange = Range(match.range, in: workingInput) {
+                        workingInput.removeSubrange(fullRange)
+                    }
+                }
+            }
+        }
+
+        // Check for word-based numbers ("in two minutes", "in three hours")
+        let wordNumbers: [String: Int] = [
+            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
+            "forty-five": 45, "half": 30, "a": 1, "an": 1
+        ]
+        let wordPattern = #"in\s+(one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|forty-five|half|a|an)\s*(minutes?|mins?|hours?|hrs?)"#
+        if foundDate == nil, let regex = try? NSRegularExpression(pattern: wordPattern, options: .caseInsensitive) {
+            let range = NSRange(workingInput.startIndex..., in: workingInput)
+            if let match = regex.firstMatch(in: workingInput, options: [], range: range) {
+                if let wordRange = Range(match.range(at: 1), in: workingInput),
+                   let unitRange = Range(match.range(at: 2), in: workingInput) {
+                    let word = String(workingInput[wordRange]).lowercased()
+                    let unit = String(workingInput[unitRange]).lowercased()
+                    let number = wordNumbers[word] ?? 1
+
+                    var component: Calendar.Component = .minute
+                    if unit.hasPrefix("hour") || unit.hasPrefix("hr") {
+                        component = .hour
+                    }
+
+                    foundDate = calendar.date(byAdding: component, value: number, to: Date())
+                    hasSpecificTime = true
+
+                    if let fullRange = Range(match.range, in: workingInput) {
+                        workingInput.removeSubrange(fullRange)
+                    }
+                }
+            }
+        }
+
         // Check relative patterns first
         for (pattern, resolver) in Self.relativePatterns {
             if lowercased.contains(pattern) {
@@ -261,8 +320,27 @@ final class NaturalLanguageParser {
     private func cleanTitle(_ input: String) -> String {
         var cleaned = input
 
+        // Remove "remind me to", "remind me", "reminder to", "reminder" at the start
+        let remindPatterns = [
+            "^\\s*remind\\s+me\\s+to\\s+",
+            "^\\s*remind\\s+me\\s+",
+            "^\\s*reminder\\s+to\\s+",
+            "^\\s*reminder\\s+",
+            "^\\s*set\\s+a?\\s*reminder\\s+to\\s+",
+            "^\\s*set\\s+a?\\s*reminder\\s+for\\s+",
+        ]
+        for pattern in remindPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                cleaned = regex.stringByReplacingMatches(
+                    in: cleaned,
+                    range: NSRange(cleaned.startIndex..., in: cleaned),
+                    withTemplate: ""
+                )
+            }
+        }
+
         // Remove common preposition artifacts
-        let artifacts = ["at", "on", "by", "for", "the", "in"]
+        let artifacts = ["at", "on", "by", "for", "the", "in", "to"]
         for artifact in artifacts {
             // Remove if at start
             let startPattern = "^\\s*\(artifact)\\s+"

@@ -2,10 +2,12 @@ import SwiftUI
 
 struct UndoToast: View {
     let message: String
+    let taskId: UUID  // Track which task this toast is for
     let onUndo: () -> Void
     let onDismiss: () -> Void
 
     @State private var isVisible: Bool = false
+    @State private var dismissTask: Task<Void, Never>?
 
     var body: some View {
         HStack(spacing: Theme.Space.md) {
@@ -16,6 +18,7 @@ struct UndoToast: View {
             Spacer()
 
             Button(action: {
+                dismissTask?.cancel()
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 onUndo()
             }) {
@@ -40,9 +43,17 @@ struct UndoToast: View {
             }
 
             // Auto dismiss after 3 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                dismiss()
+            dismissTask = Task {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        dismiss()
+                    }
+                }
             }
+        }
+        .onDisappear {
+            dismissTask?.cancel()
         }
     }
 
@@ -64,6 +75,7 @@ struct UndoToast: View {
             Spacer()
             UndoToast(
                 message: "Task deleted",
+                taskId: UUID(),
                 onUndo: { print("Undo tapped") },
                 onDismiss: { print("Dismissed") }
             )

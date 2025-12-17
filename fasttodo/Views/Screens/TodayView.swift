@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Combine
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
@@ -12,6 +13,7 @@ struct TodayView: View {
     @State private var pendingDeleteTask: TodoItem?
     @State private var showCelebration: Bool = false
     @State private var previousIncompleteCount: Int = 0
+    @State private var keyboardHeight: CGFloat = 0
 
     private let parser = NaturalLanguageParser()
 
@@ -112,12 +114,13 @@ struct TodayView: View {
                         }
                     }
 
-                    // Bottom spacing
+                    // Bottom spacing (extra when keyboard visible)
                     Spacer()
-                        .frame(height: 120)
+                        .frame(height: 120 + keyboardHeight)
                 }
             }
             .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
 
             // Input bar + Undo toast
             VStack(spacing: 0) {
@@ -134,12 +137,14 @@ struct TodayView: View {
                 .allowsHitTesting(false)
 
                 // Undo toast
-                if showUndoToast {
+                if showUndoToast, let taskId = pendingDeleteTask?.id {
                     UndoToast(
                         message: "Task deleted",
+                        taskId: taskId,
                         onUndo: undoDelete,
                         onDismiss: confirmDelete
                     )
+                    .id(taskId)  // Force new instance for each delete
                     .padding(.bottom, Theme.Space.sm)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -171,6 +176,18 @@ struct TodayView: View {
                 withAnimation {
                     showCelebration = true
                 }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
+            if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    keyboardHeight = frame.height
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = 0
             }
         }
     }
