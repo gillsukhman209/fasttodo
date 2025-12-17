@@ -128,7 +128,7 @@ struct UpcomingView: View {
                                             if index < section.tasks.count - 1 {
                                                 Divider()
                                                     .background(Theme.Colors.border)
-                                                    .padding(.leading, 56)
+                                                    .padding(.leading, 72)
                                             }
                                         }
                                     }

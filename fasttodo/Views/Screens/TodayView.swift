@@ -94,24 +94,21 @@ struct TodayView: View {
                                     task: task,
                                     onDelete: { deleteTask(task) },
                                     onEdit: { taskToEdit = task },
+                                    onDragStart: { draggingTask = task },
                                     animationIndex: index
                                 )
                                 .opacity(draggingTask?.id == task.id ? 0.5 : 1)
-                                .onDrag {
-                                    draggingTask = task
-                                    return NSItemProvider(object: task.id.uuidString as NSString)
-                                }
                                 .onDrop(of: [.text], delegate: TaskDropDelegate(
                                     task: task,
                                     tasks: visibleTasks,
                                     draggingTask: $draggingTask,
-                                    onReorder: reorderTasks
+                                    reorderAction: reorderTasks
                                 ))
 
                                 if index < visibleTasks.count - 1 {
                                     Divider()
                                         .background(Theme.Colors.border)
-                                        .padding(.leading, 56)
+                                        .padding(.leading, 72)
                                 }
                             }
                         }
@@ -244,12 +241,30 @@ struct TodayView: View {
     private func reorderTasks(from source: TodoItem, to destination: TodoItem) {
         guard source.id != destination.id else { return }
 
-        let sourceSortOrder = source.sortOrder
-        let destSortOrder = destination.sortOrder
+        let sourceIndex = visibleTasks.firstIndex(where: { $0.id == source.id })
+        let destIndex = visibleTasks.firstIndex(where: { $0.id == destination.id })
 
-        withAnimation(.spring(response: 0.3)) {
-            source.sortOrder = destSortOrder
-            destination.sortOrder = sourceSortOrder
+        guard let sourceIdx = sourceIndex, let destIdx = destIndex else { return }
+
+        // Swap sort orders
+        let sourceSortOrder = source.sortOrder
+        source.sortOrder = destination.sortOrder
+        destination.sortOrder = sourceSortOrder
+
+        // If moving to adjacent position, we're done
+        // For non-adjacent moves, shift all items between
+        if abs(sourceIdx - destIdx) > 1 {
+            let range = sourceIdx < destIdx
+                ? (sourceIdx + 1)...destIdx
+                : destIdx...(sourceIdx - 1)
+
+            for i in range {
+                if sourceIdx < destIdx {
+                    visibleTasks[i].sortOrder += 1
+                } else {
+                    visibleTasks[i].sortOrder -= 1
+                }
+            }
         }
     }
 }
@@ -260,7 +275,7 @@ struct TaskDropDelegate: DropDelegate {
     let task: TodoItem
     let tasks: [TodoItem]
     @Binding var draggingTask: TodoItem?
-    let onReorder: (TodoItem, TodoItem) -> Void
+    let reorderAction: (TodoItem, TodoItem) -> Void
 
     func performDrop(info: DropInfo) -> Bool {
         draggingTask = nil
@@ -269,11 +284,15 @@ struct TaskDropDelegate: DropDelegate {
 
     func dropEntered(info: DropInfo) {
         guard let dragging = draggingTask, dragging.id != task.id else { return }
-        onReorder(dragging, task)
+        reorderAction(dragging, task)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        // Optional: handle exit
     }
 }
 

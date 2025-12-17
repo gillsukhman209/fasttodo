@@ -69,8 +69,11 @@ struct InputBar: View {
     private func submitAction() {
         guard !text.isEmpty else { return }
         onSubmit?()
-        // Keep keyboard open for adding multiple tasks
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        // Re-focus after a brief delay to keep keyboard open
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            isFocused = true
+        }
     }
 }
 

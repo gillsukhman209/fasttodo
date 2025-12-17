@@ -1,5 +1,27 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
+
+// MARK: - Drag Handle (6 dots)
+
+struct DragHandle: View {
+    var body: some View {
+        VStack(spacing: 3) {
+            ForEach(0..<3, id: \.self) { _ in
+                HStack(spacing: 3) {
+                    Circle()
+                        .fill(Theme.Colors.textMuted.opacity(0.5))
+                        .frame(width: 4, height: 4)
+                    Circle()
+                        .fill(Theme.Colors.textMuted.opacity(0.5))
+                        .frame(width: 4, height: 4)
+                }
+            }
+        }
+        .frame(width: 20, height: 24)
+        .contentShape(Rectangle())
+    }
+}
 
 // MARK: - Task Item (Minimalist + Swipeable)
 
@@ -7,14 +29,21 @@ struct TaskItem: View {
     @Bindable var task: TodoItem
     var onDelete: (() -> Void)?
     var onEdit: (() -> Void)?
+    var onDragStart: (() -> Void)?
     var animationIndex: Int = 0
 
     @State private var offset: CGFloat = 0
     @State private var isSwiping: Bool = false
     @State private var hasAppeared: Bool = false
+    @State private var gestureDirection: GestureDirection = .undetermined
+    @State private var isDragging: Bool = false
 
     private let completeThreshold: CGFloat = 80
     private let deleteThreshold: CGFloat = -80
+
+    private enum GestureDirection {
+        case undetermined, horizontal, vertical
+    }
 
     var body: some View {
         ZStack {
@@ -54,7 +83,16 @@ struct TaskItem: View {
             }
 
             // Main content
-            HStack(spacing: Theme.Space.md) {
+            HStack(spacing: Theme.Space.sm) {
+                // Drag handle
+                DragHandle()
+                    .onDrag {
+                        isDragging = true
+                        onDragStart?()
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        return NSItemProvider(object: task.id.uuidString as NSString)
+                    }
+
                 // Tap target circle
                 Button(action: toggleComplete) {
                     Circle()
@@ -101,17 +139,23 @@ struct TaskItem: View {
                 Spacer()
             }
             .padding(.vertical, Theme.Space.md)
-            .padding(.horizontal, Theme.Space.md)
+            .padding(.leading, Theme.Space.sm)
+            .padding(.trailing, Theme.Space.md)
             .background(Theme.Colors.bg)
             .offset(x: offset)
             .simultaneousGesture(
-                DragGesture(minimumDistance: 10)
+                DragGesture(minimumDistance: 20)
                     .onChanged { value in
                         let horizontal = abs(value.translation.width)
                         let vertical = abs(value.translation.height)
 
-                        // Only swipe if horizontal movement is dominant
-                        guard horizontal > vertical else { return }
+                        // Determine direction once at the start
+                        if gestureDirection == .undetermined && (horizontal > 15 || vertical > 15) {
+                            gestureDirection = horizontal > vertical * 1.5 ? .horizontal : .vertical
+                        }
+
+                        // Only handle horizontal swipes
+                        guard gestureDirection == .horizontal else { return }
 
                         let translation = value.translation.width
                         // Allow swipe right (complete) only if not completed
@@ -126,7 +170,7 @@ struct TaskItem: View {
                     }
                     .onEnded { value in
                         let translation = value.translation.width
-                        if isSwiping {
+                        if isSwiping && gestureDirection == .horizontal {
                             if translation > completeThreshold {
                                 toggleComplete()
                             } else if translation < deleteThreshold {
@@ -137,6 +181,7 @@ struct TaskItem: View {
                             offset = 0
                             isSwiping = false
                         }
+                        gestureDirection = .undetermined
                     }
             )
             .onLongPressGesture(minimumDuration: 0.5) {
@@ -233,14 +278,14 @@ struct SectionLabel: View {
                     hasSpecificTime: true,
                     recurrenceRule: .daily
                 ))
-                Divider().background(Theme.Colors.border).padding(.leading, 56)
+                Divider().background(Theme.Colors.border).padding(.leading, 72)
                 TaskItem(task: TodoItem(
                     title: "Call mom",
                     rawInput: "Call mom at 7pm",
                     scheduledDate: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date()),
                     hasSpecificTime: true
                 ))
-                Divider().background(Theme.Colors.border).padding(.leading, 56)
+                Divider().background(Theme.Colors.border).padding(.leading, 72)
                 TaskItem(task: TodoItem(
                     title: "Buy groceries",
                     rawInput: "Buy groceries"
