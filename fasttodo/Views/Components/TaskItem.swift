@@ -1,24 +1,25 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 // MARK: - Drag Handle (6 dots)
 
 struct DragHandle: View {
+    var isDragging: Bool = false
+
     var body: some View {
         VStack(spacing: 3) {
             ForEach(0..<3, id: \.self) { _ in
                 HStack(spacing: 3) {
                     Circle()
-                        .fill(Theme.Colors.textMuted.opacity(0.5))
+                        .fill(isDragging ? Theme.Colors.accent : Theme.Colors.textMuted.opacity(0.5))
                         .frame(width: 4, height: 4)
                     Circle()
-                        .fill(Theme.Colors.textMuted.opacity(0.5))
+                        .fill(isDragging ? Theme.Colors.accent : Theme.Colors.textMuted.opacity(0.5))
                         .frame(width: 4, height: 4)
                 }
             }
         }
-        .frame(width: 20, height: 24)
+        .frame(width: 24, height: 44)
         .contentShape(Rectangle())
     }
 }
@@ -29,14 +30,16 @@ struct TaskItem: View {
     @Bindable var task: TodoItem
     var onDelete: (() -> Void)?
     var onEdit: (() -> Void)?
-    var onDragStart: (() -> Void)?
+    var isDragging: Bool = false
+    var dragOffset: CGFloat = 0
+    var onDragChanged: ((CGFloat) -> Void)?
+    var onDragEnded: (() -> Void)?
     var animationIndex: Int = 0
 
-    @State private var offset: CGFloat = 0
+    @State private var swipeOffset: CGFloat = 0
     @State private var isSwiping: Bool = false
     @State private var hasAppeared: Bool = false
     @State private var gestureDirection: GestureDirection = .undetermined
-    @State private var isDragging: Bool = false
 
     private let completeThreshold: CGFloat = 80
     private let deleteThreshold: CGFloat = -80
@@ -47,51 +50,56 @@ struct TaskItem: View {
 
     var body: some View {
         ZStack {
-            // Swipe reveal backgrounds
-            HStack {
-                // Complete (swipe right)
-                ZStack {
-                    Circle()
-                        .fill(Theme.Colors.success)
-                        .frame(width: 32, height: 32)
-                        .scaleEffect(offset > completeThreshold / 2 ? 1 : 0.5)
-                        .opacity(offset > 20 ? 1 : 0)
+            // Swipe reveal backgrounds (hidden when dragging)
+            if !isDragging {
+                HStack {
+                    // Complete (swipe right)
+                    ZStack {
+                        Circle()
+                            .fill(Theme.Colors.success)
+                            .frame(width: 32, height: 32)
+                            .scaleEffect(swipeOffset > completeThreshold / 2 ? 1 : 0.5)
+                            .opacity(swipeOffset > 20 ? 1 : 0)
 
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .opacity(offset > completeThreshold / 2 ? 1 : 0)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .opacity(swipeOffset > completeThreshold / 2 ? 1 : 0)
+                    }
+                    .padding(.leading, Theme.Space.lg)
+
+                    Spacer()
+
+                    // Delete (swipe left)
+                    ZStack {
+                        Circle()
+                            .fill(Theme.Colors.error)
+                            .frame(width: 32, height: 32)
+                            .scaleEffect(swipeOffset < deleteThreshold / 2 ? 1 : 0.5)
+                            .opacity(swipeOffset < -20 ? 1 : 0)
+
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .opacity(swipeOffset < deleteThreshold / 2 ? 1 : 0)
+                    }
+                    .padding(.trailing, Theme.Space.lg)
                 }
-                .padding(.leading, Theme.Space.lg)
-
-                Spacer()
-
-                // Delete (swipe left)
-                ZStack {
-                    Circle()
-                        .fill(Theme.Colors.error)
-                        .frame(width: 32, height: 32)
-                        .scaleEffect(offset < deleteThreshold / 2 ? 1 : 0.5)
-                        .opacity(offset < -20 ? 1 : 0)
-
-                    Image(systemName: "trash")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .opacity(offset < deleteThreshold / 2 ? 1 : 0)
-                }
-                .padding(.trailing, Theme.Space.lg)
             }
 
             // Main content
             HStack(spacing: Theme.Space.sm) {
-                // Drag handle
-                DragHandle()
-                    .onDrag {
-                        isDragging = true
-                        onDragStart?()
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        return NSItemProvider(object: task.id.uuidString as NSString)
-                    }
+                // Drag handle with vertical drag gesture
+                DragHandle(isDragging: isDragging)
+                    .gesture(
+                        DragGesture(minimumDistance: 5)
+                            .onChanged { value in
+                                onDragChanged?(value.translation.height)
+                            }
+                            .onEnded { _ in
+                                onDragEnded?()
+                            }
+                    )
 
                 // Tap target circle
                 Button(action: toggleComplete) {
@@ -141,11 +149,22 @@ struct TaskItem: View {
             .padding(.vertical, Theme.Space.md)
             .padding(.leading, Theme.Space.sm)
             .padding(.trailing, Theme.Space.md)
-            .background(Theme.Colors.bg)
-            .offset(x: offset)
+            .background(
+                RoundedRectangle(cornerRadius: isDragging ? 12 : 0)
+                    .fill(Theme.Colors.bg)
+                    .shadow(
+                        color: isDragging ? Color.black.opacity(0.2) : Color.clear,
+                        radius: isDragging ? 8 : 0,
+                        y: isDragging ? 4 : 0
+                    )
+            )
+            .offset(x: swipeOffset)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 20)
                     .onChanged { value in
+                        // Don't allow swipe while dragging
+                        guard !isDragging else { return }
+
                         let horizontal = abs(value.translation.width)
                         let vertical = abs(value.translation.height)
 
@@ -161,10 +180,10 @@ struct TaskItem: View {
                         // Allow swipe right (complete) only if not completed
                         // Allow swipe left (delete) always
                         if translation > 0 && !task.isCompleted {
-                            offset = translation
+                            swipeOffset = translation
                             isSwiping = true
                         } else if translation < 0 {
-                            offset = translation
+                            swipeOffset = translation
                             isSwiping = true
                         }
                     }
@@ -178,27 +197,36 @@ struct TaskItem: View {
                             }
                         }
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            offset = 0
+                            swipeOffset = 0
                             isSwiping = false
                         }
                         gestureDirection = .undetermined
                     }
             )
             .onLongPressGesture(minimumDuration: 0.5) {
+                guard !isDragging else { return }
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 onEdit?()
             }
         }
-        .opacity(hasAppeared ? 1 : 0)
-        .offset(y: hasAppeared ? 0 : 20)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: task.isCompleted)
-        .animation(.spring(response: 0.2), value: offset)
+        .scaleEffect(isDragging ? 1.03 : 1.0)
+        .opacity(isDragging ? 0.9 : (hasAppeared ? 1 : 0))
+        .offset(y: calculateYOffset())
+        .animation(isDragging ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: task.isCompleted)
+        .animation(isDragging ? nil : .spring(response: 0.2), value: swipeOffset)
         .onAppear {
             let delay = Double(animationIndex) * 0.05
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8).delay(delay)) {
                 hasAppeared = true
             }
         }
+    }
+
+    private func calculateYOffset() -> CGFloat {
+        if isDragging {
+            return dragOffset
+        }
+        return hasAppeared ? 0 : 20
     }
 
     private func toggleComplete() {

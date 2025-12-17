@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
@@ -13,7 +12,12 @@ struct TodayView: View {
     @State private var pendingDeleteTask: TodoItem?
     @State private var showCelebration: Bool = false
     @State private var previousIncompleteCount: Int = 0
+
+    // Drag and drop state
     @State private var draggingTask: TodoItem?
+    @State private var dragOffset: CGFloat = 0
+    @State private var dragSourceIndex: Int?
+    @State private var currentDragIndex: Int = 0
 
     private let parser = NaturalLanguageParser()
 
@@ -43,6 +47,83 @@ struct TodayView: View {
     private var visibleTasks: [TodoItem] {
         todayTasks.filter { $0.id != pendingDeleteTask?.id }
     }
+
+    // MARK: - Task List Section
+
+    @ViewBuilder
+    private var taskListSection: some View {
+        VStack(spacing: 0) {
+            // Section header
+            HStack {
+                SectionLabel("Tasks", count: incompleteTasks.count)
+                Spacer()
+            }
+            .padding(.horizontal, Theme.Space.lg)
+            .padding(.top, Theme.Space.lg)
+            .padding(.bottom, Theme.Space.md)
+
+            // Task list with live drag reordering
+            taskList
+        }
+    }
+
+    @ViewBuilder
+    private var taskList: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(visibleTasks.enumerated()), id: \.element.id) { index, task in
+                // Drop indicator above this item
+                if let dragIdx = dragSourceIndex,
+                   currentDragIndex == index,
+                   currentDragIndex < dragIdx {
+                    dropIndicator
+                }
+
+                TaskItem(
+                    task: task,
+                    onDelete: { deleteTask(task) },
+                    onEdit: { taskToEdit = task },
+                    isDragging: draggingTask?.id == task.id,
+                    dragOffset: draggingTask?.id == task.id ? dragOffset : 0,
+                    onDragChanged: { offset in
+                        handleDragChanged(task: task, index: index, offset: offset)
+                    },
+                    onDragEnded: {
+                        handleDragEnded(from: index)
+                    },
+                    animationIndex: index
+                )
+                .zIndex(draggingTask?.id == task.id ? 100 : 0)
+
+                // Drop indicator below this item
+                if let dragIdx = dragSourceIndex,
+                   currentDragIndex == index,
+                   currentDragIndex > dragIdx {
+                    dropIndicator
+                }
+
+                if index < visibleTasks.count - 1 {
+                    Divider()
+                        .background(Theme.Colors.border)
+                        .padding(.leading, 72)
+                }
+            }
+        }
+    }
+
+    private var dropIndicator: some View {
+        HStack(spacing: Theme.Space.sm) {
+            Circle()
+                .fill(Theme.Colors.accent)
+                .frame(width: 8, height: 8)
+            Rectangle()
+                .fill(Theme.Colors.accent)
+                .frame(height: 2)
+        }
+        .padding(.horizontal, Theme.Space.md)
+        .transition(.opacity)
+    }
+
+    // MARK: - Body
 
     var body: some View {
         ScrollView {
@@ -77,42 +158,7 @@ struct TodayView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, Theme.Space.xl)
                 } else {
-                    VStack(spacing: 0) {
-                        // Section header
-                        HStack {
-                            SectionLabel("Tasks", count: incompleteTasks.count)
-                            Spacer()
-                        }
-                        .padding(.horizontal, Theme.Space.lg)
-                        .padding(.top, Theme.Space.lg)
-                        .padding(.bottom, Theme.Space.md)
-
-                        // Task list
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(visibleTasks.enumerated()), id: \.element.id) { index, task in
-                                TaskItem(
-                                    task: task,
-                                    onDelete: { deleteTask(task) },
-                                    onEdit: { taskToEdit = task },
-                                    onDragStart: { draggingTask = task },
-                                    animationIndex: index
-                                )
-                                .opacity(draggingTask?.id == task.id ? 0.5 : 1)
-                                .onDrop(of: [.text], delegate: TaskDropDelegate(
-                                    task: task,
-                                    tasks: visibleTasks,
-                                    draggingTask: $draggingTask,
-                                    reorderAction: reorderTasks
-                                ))
-
-                                if index < visibleTasks.count - 1 {
-                                    Divider()
-                                        .background(Theme.Colors.border)
-                                        .padding(.leading, 72)
-                                }
-                            }
-                        }
-                    }
+                    taskListSection
                 }
             }
             .contentShape(Rectangle())
@@ -238,61 +284,61 @@ struct TodayView: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    private func reorderTasks(from source: TodoItem, to destination: TodoItem) {
-        guard source.id != destination.id else { return }
+    // MARK: - Drag and Drop
 
-        let sourceIndex = visibleTasks.firstIndex(where: { $0.id == source.id })
-        let destIndex = visibleTasks.firstIndex(where: { $0.id == destination.id })
+    private let rowHeight: CGFloat = 56
 
-        guard let sourceIdx = sourceIndex, let destIdx = destIndex else { return }
+    private func handleDragChanged(task: TodoItem, index: Int, offset: CGFloat) {
+        if draggingTask == nil {
+            draggingTask = task
+            dragSourceIndex = index
+            currentDragIndex = index
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
 
-        // Swap sort orders
-        let sourceSortOrder = source.sortOrder
-        source.sortOrder = destination.sortOrder
-        destination.sortOrder = sourceSortOrder
+        dragOffset = offset
 
-        // If moving to adjacent position, we're done
-        // For non-adjacent moves, shift all items between
-        if abs(sourceIdx - destIdx) > 1 {
-            let range = sourceIdx < destIdx
-                ? (sourceIdx + 1)...destIdx
-                : destIdx...(sourceIdx - 1)
+        guard let sourceIdx = dragSourceIndex else { return }
 
-            for i in range {
-                if sourceIdx < destIdx {
-                    visibleTasks[i].sortOrder += 1
-                } else {
-                    visibleTasks[i].sortOrder -= 1
-                }
-            }
+        let indexOffset = Int(round(offset / rowHeight))
+        let newTarget = max(0, min(visibleTasks.count - 1, sourceIdx + indexOffset))
+
+        if newTarget != currentDragIndex {
+            currentDragIndex = newTarget
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
     }
-}
 
-// MARK: - Drop Delegate
+    private func handleDragEnded(from originalIndex: Int) {
+        guard let dragging = draggingTask,
+              let sourceIdx = dragSourceIndex else {
+            resetDragState()
+            return
+        }
 
-struct TaskDropDelegate: DropDelegate {
-    let task: TodoItem
-    let tasks: [TodoItem]
-    @Binding var draggingTask: TodoItem?
-    let reorderAction: (TodoItem, TodoItem) -> Void
+        if currentDragIndex != sourceIdx {
+            commitReorder(task: dragging, from: sourceIdx, to: currentDragIndex)
+        }
 
-    func performDrop(info: DropInfo) -> Bool {
+        resetDragState()
+    }
+
+    private func resetDragState() {
         draggingTask = nil
-        return true
+        dragOffset = 0
+        dragSourceIndex = nil
+        currentDragIndex = 0
     }
 
-    func dropEntered(info: DropInfo) {
-        guard let dragging = draggingTask, dragging.id != task.id else { return }
-        reorderAction(dragging, task)
-    }
+    private func commitReorder(task: TodoItem, from sourceIdx: Int, to destIdx: Int) {
+        guard sourceIdx != destIdx else { return }
 
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func dropExited(info: DropInfo) {
-        // Optional: handle exit
+        // Higher sortOrder = higher in list (reverse order)
+        if destIdx < sourceIdx {
+            task.sortOrder = visibleTasks[destIdx].sortOrder + 1
+        } else {
+            task.sortOrder = visibleTasks[destIdx].sortOrder - 1
+        }
     }
 }
 
