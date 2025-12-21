@@ -40,22 +40,53 @@ struct MainTabView: View {
         }
         .tint(Theme.Colors.accent)
         #else
-        NavigationSplitView {
-            List(Tab.allCases, id: \.self, selection: $selectedTab) { tab in
-                Label(tab.title, systemImage: tab.icon)
-                    .tag(tab)
+        VStack(spacing: 0) {
+            // Top tab bar
+            HStack(spacing: 0) {
+                ForEach(Tab.allCases, id: \.self) { tab in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 12))
+                            Text(tab.title)
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundStyle(selectedTab == tab ? Theme.Colors.accent : Theme.Colors.textSecondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background {
+                            if selectedTab == tab {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Theme.Colors.accent.opacity(0.15))
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer()
             }
-            .listStyle(.sidebar)
-            .navigationTitle("FastTodo")
-        } detail: {
-            switch selectedTab {
-            case .today:
-                TodayView()
-            case .upcoming:
-                UpcomingView()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Theme.Colors.bg)
+
+            Divider()
+
+            // Content
+            Group {
+                switch selectedTab {
+                case .today:
+                    TodayView()
+                case .upcoming:
+                    UpcomingView()
+                }
             }
         }
-        .tint(Theme.Colors.accent)
+        .background(Theme.Colors.bg)
         #endif
     }
 }

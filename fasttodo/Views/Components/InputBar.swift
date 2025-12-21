@@ -34,6 +34,7 @@ struct InputBar: View {
             TextField("Add a task...", text: $text)
                 .font(Theme.Fonts.body)
                 .foregroundStyle(Theme.Colors.textPrimary)
+                .textFieldStyle(.plain)
                 .focused($isFocused)
                 .submitLabel(.done)
                 .onSubmit(submitAction)
@@ -59,10 +60,12 @@ struct InputBar: View {
         .background {
             RoundedRectangle(cornerRadius: Theme.Radius.lg)
                 .fill(Theme.Colors.bgSecondary)
+                #if os(iOS)
                 .overlay {
                     RoundedRectangle(cornerRadius: Theme.Radius.lg)
                         .stroke(isFocused ? Theme.Colors.accent.opacity(0.5) : Theme.Colors.border, lineWidth: 1)
                 }
+                #endif
         }
         .padding(.horizontal, Theme.Space.md)
         .animation(.spring(response: 0.3), value: isFocused)

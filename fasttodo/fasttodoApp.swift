@@ -33,5 +33,8 @@ struct fasttodoApp: App {
             MainTabView()
         }
         .modelContainer(sharedModelContainer)
+        #if os(macOS)
+        .windowStyle(.hiddenTitleBar)
+        #endif
     }
 }
