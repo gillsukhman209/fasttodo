@@ -52,6 +52,7 @@ struct InputBar: View {
                                 .fill(Theme.Colors.accent)
                         }
                 }
+                .buttonStyle(.plain)
                 .transition(.scale.combined(with: .opacity))
             }
         }
