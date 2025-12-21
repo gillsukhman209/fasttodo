@@ -74,7 +74,8 @@ struct TaskItem: View {
 
     var body: some View {
         ZStack {
-            // Swipe reveal backgrounds (hidden when dragging)
+            #if os(iOS)
+            // Swipe reveal backgrounds (hidden when dragging) - iOS only
             if !isDragging {
                 HStack {
                     // Complete (swipe right)
@@ -110,10 +111,12 @@ struct TaskItem: View {
                     .padding(.trailing, Theme.Space.lg)
                 }
             }
+            #endif
 
             // Main content
             HStack(spacing: Theme.Space.sm) {
-                // Drag handle with vertical drag gesture
+                #if os(iOS)
+                // Drag handle with vertical drag gesture - iOS only
                 DragHandle(isDragging: isDragging)
                     .gesture(
                         DragGesture(minimumDistance: 5)
@@ -124,9 +127,10 @@ struct TaskItem: View {
                                 onDragEnded?()
                             }
                     )
+                #endif
 
                 // Tap target circle
-                Button(action: toggleComplete) {
+                ZStack {
                     Circle()
                         .stroke(
                             task.isCompleted ? Theme.Colors.success : Theme.Colors.textMuted,
@@ -144,7 +148,11 @@ struct TaskItem: View {
                             }
                         }
                 }
-                .buttonStyle(.plain)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    toggleComplete()
+                }
 
                 // Text content
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
@@ -183,6 +191,7 @@ struct TaskItem: View {
                     )
             )
             .offset(x: swipeOffset)
+            #if os(iOS)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 20)
                     .onChanged { value in
@@ -227,6 +236,7 @@ struct TaskItem: View {
                         gestureDirection = .undetermined
                     }
             )
+            #endif
             #if os(iOS)
             .onLongPressGesture(minimumDuration: 0.5) {
                 guard !isDragging else { return }

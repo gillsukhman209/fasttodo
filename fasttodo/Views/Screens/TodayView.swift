@@ -164,10 +164,12 @@ struct TodayView: View {
                     taskListSection
                 }
             }
+            #if os(iOS)
             .contentShape(Rectangle())
             .onTapGesture {
                 hideKeyboard()
             }
+            #endif
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
