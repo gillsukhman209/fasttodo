@@ -74,19 +74,18 @@ struct TaskItem: View {
 
     var body: some View {
         ZStack {
-            #if os(iOS)
-            // Swipe reveal backgrounds (hidden when dragging) - iOS only
+            // Swipe reveal backgrounds (hidden when dragging)
             if !isDragging {
                 HStack {
-                    // Complete (swipe right)
+                    // Toggle complete (swipe right)
                     ZStack {
                         Circle()
-                            .fill(Theme.Colors.success)
+                            .fill(task.isCompleted ? Theme.Colors.textSecondary : Theme.Colors.success)
                             .frame(width: 32, height: 32)
                             .scaleEffect(swipeOffset > completeThreshold / 2 ? 1 : 0.5)
                             .opacity(swipeOffset > 20 ? 1 : 0)
 
-                        Image(systemName: "checkmark")
+                        Image(systemName: task.isCompleted ? "arrow.uturn.backward" : "checkmark")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.white)
                             .opacity(swipeOffset > completeThreshold / 2 ? 1 : 0)
@@ -111,7 +110,6 @@ struct TaskItem: View {
                     .padding(.trailing, Theme.Space.lg)
                 }
             }
-            #endif
 
             // Main content
             HStack(spacing: Theme.Space.sm) {
@@ -191,11 +189,10 @@ struct TaskItem: View {
                     )
             )
             .offset(x: swipeOffset)
-            #if os(iOS)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 20)
                     .onChanged { value in
-                        // Don't allow swipe while dragging
+                        // Don't allow swipe while dragging (iOS only concern)
                         guard !isDragging else { return }
 
                         let horizontal = abs(value.translation.width)
@@ -210,12 +207,8 @@ struct TaskItem: View {
                         guard gestureDirection == .horizontal else { return }
 
                         let translation = value.translation.width
-                        // Allow swipe right (complete) only if not completed
-                        // Allow swipe left (delete) always
-                        if translation > 0 && !task.isCompleted {
-                            swipeOffset = translation
-                            isSwiping = true
-                        } else if translation < 0 {
+                        // Allow swipe right (toggle complete) and swipe left (delete)
+                        if translation > 0 || translation < 0 {
                             swipeOffset = translation
                             isSwiping = true
                         }
@@ -236,7 +229,6 @@ struct TaskItem: View {
                         gestureDirection = .undetermined
                     }
             )
-            #endif
             #if os(iOS)
             .onLongPressGesture(minimumDuration: 0.5) {
                 guard !isDragging else { return }
@@ -245,6 +237,9 @@ struct TaskItem: View {
             }
             #endif
             #if os(macOS)
+            .onTapGesture(count: 2) {
+                onEdit?()
+            }
             .contextMenu {
                 Button("Edit") {
                     onEdit?()
