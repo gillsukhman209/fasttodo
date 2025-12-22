@@ -14,13 +14,18 @@ struct fasttodoApp: App {
         let schema = Schema([
             TodoItem.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .private("iCloud.com.gill.fasttodo")
+        )
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
-        }   
+        }
     }()
 
     init() {
