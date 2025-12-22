@@ -133,7 +133,7 @@ struct TodayView: View {
         ScrollView {
             VStack(spacing: 0) {
                 // Header
-                HeaderView(completed: completedCount, total: todayTasks.count, isDarkMode: $isDarkMode)
+                HeaderView(completed: completedCount, total: todayTasks.count, isDarkMode: $isDarkMode, onSync: syncData)
 
                 // Divider
                 Rectangle()
@@ -174,6 +174,9 @@ struct TodayView: View {
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        .refreshable {
+            syncData()
+        }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 0) {
                 // Undo toast
@@ -227,6 +230,14 @@ struct TodayView: View {
     }
 
     // MARK: - Actions
+
+    private func syncData() {
+        // Trigger CloudKit sync by saving context
+        try? modelContext.save()
+        #if os(iOS)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
+    }
 
     private func addTask() {
         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }

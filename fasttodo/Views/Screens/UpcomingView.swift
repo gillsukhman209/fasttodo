@@ -1,5 +1,9 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
+import WidgetKit
+import UIKit
+#endif
 
 struct UpcomingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -8,6 +12,7 @@ struct UpcomingView: View {
     @State private var taskToEdit: TodoItem?
     @State private var showUndoToast: Bool = false
     @State private var pendingDeleteTask: TodoItem?
+    @State private var isSyncing: Bool = false
 
     // Filter for future tasks only
     private var upcomingTasks: [TodoItem] {
@@ -61,16 +66,29 @@ struct UpcomingView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     // Header
-                    VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                        Text("Upcoming")
-                            .font(Theme.Fonts.large)
-                            .foregroundStyle(Theme.Colors.textPrimary)
+                    HStack {
+                        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                            Text("Upcoming")
+                                .font(Theme.Fonts.large)
+                                .foregroundStyle(Theme.Colors.textPrimary)
 
-                        Text("\(upcomingTasks.count) scheduled")
-                            .font(Theme.Fonts.caption)
-                            .foregroundStyle(Theme.Colors.textSecondary)
+                            Text("\(upcomingTasks.count) scheduled")
+                                .font(Theme.Fonts.caption)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        // Sync button
+                        Button(action: triggerSync) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                                .rotationEffect(.degrees(isSyncing ? 360 : 0))
+                                .animation(isSyncing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isSyncing)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Theme.Space.lg)
                     .padding(.top, Theme.Space.xl)
                     .padding(.bottom, Theme.Space.lg)
@@ -143,6 +161,9 @@ struct UpcomingView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .refreshable {
+                syncData()
+            }
 
             // Undo toast
             if showUndoToast, let taskId = pendingDeleteTask?.id {
@@ -168,6 +189,27 @@ struct UpcomingView: View {
     }
 
     // MARK: - Actions
+
+    private func syncData() {
+        // Trigger CloudKit sync by saving context
+        try? modelContext.save()
+        #if os(iOS)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
+    }
+
+    private func triggerSync() {
+        guard !isSyncing else { return }
+        isSyncing = true
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        syncData()
+        // Reset after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            isSyncing = false
+        }
+    }
 
     private func deleteTask(_ task: TodoItem) {
         // If there's already a pending delete, confirm it first

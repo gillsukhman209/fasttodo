@@ -9,6 +9,9 @@ struct HeaderView: View {
     let completed: Int
     let total: Int
     @Binding var isDarkMode: Bool
+    var onSync: (() -> Void)? = nil
+
+    @State private var isSyncing: Bool = false
 
     private var progress: Double {
         guard total > 0 else { return 0 }
@@ -29,6 +32,19 @@ struct HeaderView: View {
                     .foregroundStyle(Theme.Colors.textSecondary)
 
                 Spacer()
+
+                // Sync button
+                if onSync != nil {
+                    Button(action: triggerSync) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                            .rotationEffect(.degrees(isSyncing ? 360 : 0))
+                            .animation(isSyncing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isSyncing)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, Theme.Space.md)
+                }
 
                 // Theme toggle
                 Button(action: toggleTheme) {
@@ -131,6 +147,19 @@ struct HeaderView: View {
         #if os(iOS)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         #endif
+    }
+
+    private func triggerSync() {
+        guard !isSyncing else { return }
+        isSyncing = true
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        onSync?()
+        // Reset after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            isSyncing = false
+        }
     }
 }
 

@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		1A3B61062EF3592E000D98E7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A3B61052EF3592E000D98E7 /* WidgetKit.framework */; };
 		1A3B61082EF3592E000D98E7 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A3B61072EF3592E000D98E7 /* SwiftUI.framework */; };
-		1A3B61192EF3592F000D98E7 /* FastTodoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1A3B61032EF3592E000D98E7 /* FastTodoWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1A3B61192EF3592F000D98E7 /* FastTodoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1A3B61032EF3592E000D98E7 /* FastTodoWidgetExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -266,6 +266,7 @@
 /* Begin PBXTargetDependency section */
 		1A3B61182EF3592F000D98E7 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilter = ios;
 			target = 1A3B61022EF3592E000D98E7 /* FastTodoWidgetExtension */;
 			targetProxy = 1A3B61172EF3592F000D98E7 /* PBXContainerItemProxy */;
 		};
