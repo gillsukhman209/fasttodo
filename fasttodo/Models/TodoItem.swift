@@ -4,27 +4,27 @@ import SwiftData
 @Model
 final class TodoItem {
     // MARK: - Identity
-    var id: UUID
+    var id: UUID = UUID()
 
     // MARK: - Content
-    var title: String
-    var rawInput: String  // Original user input preserved for reference
+    var title: String = ""
+    var rawInput: String = ""  // Original user input preserved for reference
 
     // MARK: - Temporal
     var scheduledDate: Date?      // nil = no specific date/time
-    var hasSpecificTime: Bool     // Distinguishes "tomorrow" vs "tomorrow at 3pm"
+    var hasSpecificTime: Bool = false     // Distinguishes "tomorrow" vs "tomorrow at 3pm"
 
     // MARK: - Recurrence
     var recurrenceData: Data?     // Encoded RecurrenceRule
 
     // MARK: - State
-    var isCompleted: Bool
+    var isCompleted: Bool = false
     var completedAt: Date?
 
     // MARK: - Metadata
-    var createdAt: Date
-    var updatedAt: Date
-    var sortOrder: Int  // For manual reordering
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    var sortOrder: Int = 0  // For manual reordering
 
     // MARK: - Computed Properties
 

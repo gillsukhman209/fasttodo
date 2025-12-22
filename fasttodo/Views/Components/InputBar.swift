@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct InputBar: View {
     @Binding var text: String
@@ -58,6 +61,9 @@ struct InputBar: View {
                 TextField("Add a task...", text: $text)
                     .font(Theme.Fonts.body)
                     .foregroundStyle(Theme.Colors.textPrimary)
+                    #if os(macOS)
+                    .textFieldStyle(.plain)
+                    #endif
                     .focused($isFocused)
                     .submitLabel(.done)
                     .onSubmit(submitAction)
@@ -75,6 +81,7 @@ struct InputBar: View {
                                     .fill(isReminderDetected ? .blue : Theme.Colors.accent)
                             }
                     }
+                    .buttonStyle(.plain)
                     .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -83,10 +90,12 @@ struct InputBar: View {
             .background {
                 RoundedRectangle(cornerRadius: Theme.Radius.lg)
                     .fill(Theme.Colors.bgSecondary)
+                    #if os(iOS)
                     .overlay {
                         RoundedRectangle(cornerRadius: Theme.Radius.lg)
                             .stroke(isReminderDetected ? Color.blue.opacity(0.5) : (isFocused ? Theme.Colors.accent.opacity(0.5) : Theme.Colors.border), lineWidth: 1)
                     }
+                    #endif
             }
         }
         .padding(.horizontal, Theme.Space.md)
@@ -112,11 +121,13 @@ struct InputBar: View {
     private func submitAction() {
         guard !text.isEmpty else { return }
         onSubmit?()
+        #if os(iOS)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // Re-focus after a brief delay to keep keyboard open
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             isFocused = true
         }
+        #endif
     }
 }
 

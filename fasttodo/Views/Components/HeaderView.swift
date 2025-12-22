@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 // MARK: - Header with Progress
 
@@ -125,7 +128,9 @@ struct HeaderView: View {
             isDarkMode.toggle()
             ThemeManager.shared.isDarkMode = isDarkMode
         }
+        #if os(iOS)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 }
 

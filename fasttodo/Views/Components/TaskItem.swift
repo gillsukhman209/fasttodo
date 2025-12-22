@@ -1,6 +1,30 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
 import WidgetKit
+import UIKit
+#endif
+
+// MARK: - Haptic Feedback Helper
+
+func triggerHaptic(_ style: HapticStyle = .medium) {
+    #if os(iOS)
+    let generator: UIImpactFeedbackGenerator
+    switch style {
+    case .light:
+        generator = UIImpactFeedbackGenerator(style: .light)
+    case .medium:
+        generator = UIImpactFeedbackGenerator(style: .medium)
+    case .rigid:
+        generator = UIImpactFeedbackGenerator(style: .rigid)
+    }
+    generator.impactOccurred()
+    #endif
+}
+
+enum HapticStyle {
+    case light, medium, rigid
+}
 
 // MARK: - Drag Handle (6 dots)
 
@@ -55,15 +79,15 @@ struct TaskItem: View {
             // Swipe reveal backgrounds (hidden when dragging)
             if !isDragging {
                 HStack {
-                    // Complete (swipe right)
+                    // Toggle complete (swipe right)
                     ZStack {
                         Circle()
-                            .fill(Theme.Colors.success)
+                            .fill(task.isCompleted ? Theme.Colors.textSecondary : Theme.Colors.success)
                             .frame(width: 32, height: 32)
                             .scaleEffect(swipeOffset > completeThreshold / 2 ? 1 : 0.5)
                             .opacity(swipeOffset > 20 ? 1 : 0)
 
-                        Image(systemName: "checkmark")
+                        Image(systemName: task.isCompleted ? "arrow.uturn.backward" : "checkmark")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.white)
                             .opacity(swipeOffset > completeThreshold / 2 ? 1 : 0)
@@ -91,7 +115,8 @@ struct TaskItem: View {
 
             // Main content
             HStack(spacing: Theme.Space.sm) {
-                // Drag handle with vertical drag gesture
+                #if os(iOS)
+                // Drag handle with vertical drag gesture - iOS only
                 DragHandle(isDragging: isDragging)
                     .gesture(
                         DragGesture(minimumDistance: 5)
@@ -102,9 +127,10 @@ struct TaskItem: View {
                                 onDragEnded?()
                             }
                     )
+                #endif
 
                 // Tap target circle
-                Button(action: toggleComplete) {
+                ZStack {
                     Circle()
                         .stroke(
                             task.isCompleted ? Theme.Colors.success : Theme.Colors.textMuted,
@@ -122,7 +148,11 @@ struct TaskItem: View {
                             }
                         }
                 }
-                .buttonStyle(.plain)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    toggleComplete()
+                }
 
                 // Text content
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
@@ -164,7 +194,7 @@ struct TaskItem: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 20)
                     .onChanged { value in
-                        // Don't allow swipe while dragging
+                        // Don't allow swipe while dragging (iOS only concern)
                         guard !isDragging else { return }
 
                         let horizontal = abs(value.translation.width)
@@ -179,12 +209,8 @@ struct TaskItem: View {
                         guard gestureDirection == .horizontal else { return }
 
                         let translation = value.translation.width
-                        // Allow swipe right (complete) only if not completed
-                        // Allow swipe left (delete) always
-                        if translation > 0 && !task.isCompleted {
-                            swipeOffset = translation
-                            isSwiping = true
-                        } else if translation < 0 {
+                        // Allow swipe right (toggle complete) and swipe left (delete)
+                        if translation > 0 || translation < 0 {
                             swipeOffset = translation
                             isSwiping = true
                         }
@@ -205,11 +231,30 @@ struct TaskItem: View {
                         gestureDirection = .undetermined
                     }
             )
+            #if os(iOS)
             .onLongPressGesture(minimumDuration: 0.5) {
                 guard !isDragging else { return }
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                triggerHaptic(.medium)
                 onEdit?()
             }
+            #endif
+            #if os(macOS)
+            .onTapGesture(count: 2) {
+                onEdit?()
+            }
+            .contextMenu {
+                Button("Edit") {
+                    onEdit?()
+                }
+                Button(task.isCompleted ? "Mark Incomplete" : "Mark Complete") {
+                    toggleComplete()
+                }
+                Divider()
+                Button("Delete", role: .destructive) {
+                    deleteTask()
+                }
+            }
+            #endif
         }
         .scaleEffect(isDragging ? 1.03 : 1.0)
         .opacity(isDragging ? 0.9 : (hasAppeared ? 1 : 0))
@@ -256,13 +301,15 @@ struct TaskItem: View {
 
         // Save and refresh widget immediately
         try? modelContext.save()
+        #if os(iOS)
         WidgetCenter.shared.reloadAllTimelines()
+        #endif
 
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        triggerHaptic(.medium)
     }
 
     private func deleteTask() {
-        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        triggerHaptic(.rigid)
         onDelete?()
     }
 }

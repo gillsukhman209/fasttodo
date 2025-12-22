@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 struct CelebrationView: View {
     @State private var particles: [Particle] = []
@@ -64,8 +69,10 @@ struct CelebrationView: View {
 
     private func startCelebration() {
         // Haptic feedback
+        #if os(iOS)
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
+        #endif
 
         // Create particles
         let colors: [Color] = [
@@ -76,8 +83,13 @@ struct CelebrationView: View {
             Color(hex: "00CED1"), // Cyan
         ]
 
+        #if os(iOS)
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
+        #elseif os(macOS)
+        let screenWidth = NSScreen.main?.frame.width ?? 800
+        let screenHeight = NSScreen.main?.frame.height ?? 600
+        #endif
 
         for _ in 0..<50 {
             let particle = Particle(
