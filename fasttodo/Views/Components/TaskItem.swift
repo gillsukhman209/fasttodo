@@ -115,8 +115,7 @@ struct TaskItem: View {
 
             // Main content
             HStack(spacing: Theme.Space.sm) {
-                #if os(iOS)
-                // Drag handle with vertical drag gesture - iOS only
+                // Drag handle with vertical drag gesture
                 DragHandle(isDragging: isDragging)
                     .gesture(
                         DragGesture(minimumDistance: 5)
@@ -127,7 +126,6 @@ struct TaskItem: View {
                                 onDragEnded?()
                             }
                     )
-                #endif
 
                 // Tap target circle
                 ZStack {
