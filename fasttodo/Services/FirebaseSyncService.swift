@@ -161,6 +161,8 @@ final class FirebaseSyncService {
                         } else {
                             // Not in Firestore and not recent - delete locally
                             print("[Firebase] Deleting local todo not in Firestore: \(localTodo.title)")
+                            // Cancel notification for deleted task
+                            NotificationService.shared.cancelNotification(for: localTodo.id)
                             modelContext.delete(localTodo)
                         }
                     }
@@ -215,11 +217,16 @@ final class FirebaseSyncService {
             // Only update if remote is newer
             if remoteUpdatedAt > todo.updatedAt {
                 updateTodoFromFirestore(todo, data: data)
+                // Update notification for synced task
+                NotificationService.shared.updateNotification(for: todo)
             }
         } else {
             // Create new todo from remote
             let todo = createTodoFromFirestore(data: data)
             modelContext.insert(todo)
+            // Schedule notification for new synced task
+            NotificationService.shared.scheduleNotification(for: todo)
+            print("[Firebase] 🔔 Scheduled notification for synced task: \(todo.title)")
         }
     }
 
@@ -229,6 +236,9 @@ final class FirebaseSyncService {
 
         let descriptor = FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == uuid })
         if let todo = try? modelContext.fetch(descriptor).first {
+            // Cancel notification for deleted task
+            NotificationService.shared.cancelNotification(for: todo.id)
+            print("[Firebase] 🔕 Cancelled notification for deleted task: \(todo.title)")
             modelContext.delete(todo)
         }
     }
