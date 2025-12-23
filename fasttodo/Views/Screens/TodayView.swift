@@ -232,11 +232,13 @@ struct TodayView: View {
     // MARK: - Actions
 
     private func syncData() {
-        // Trigger CloudKit sync by saving context
-        try? modelContext.save()
-        #if os(iOS)
-        WidgetCenter.shared.reloadAllTimelines()
-        #endif
+        Task {
+            // Force fetch from Firebase then push local changes
+            await FirebaseSyncService.shared.syncAllTodos(Array(tasks))
+            #if os(iOS)
+            WidgetCenter.shared.reloadAllTimelines()
+            #endif
+        }
     }
 
     private func addTask() {
@@ -260,22 +262,35 @@ struct TodayView: View {
         // Schedule notification if task has specific time
         NotificationService.shared.scheduleNotification(for: newTask)
 
-        // Save and refresh widget immediately
+        // Save locally and push to Firebase
         try? modelContext.save()
+        FirebaseSyncService.shared.pushTodo(newTask)
+
         #if os(iOS)
         WidgetCenter.shared.reloadAllTimelines()
         #endif
     }
 
     private func deleteTask(_ task: TodoItem) {
-        // If there's already a pending delete, confirm it first
+        print("[TodayView] deleteTask called for: \(task.title)")
+
+        // If there's already a pending delete, fully confirm it first
         if let existingTask = pendingDeleteTask {
-            NotificationService.shared.cancelNotification(for: existingTask.id)
+            print("[TodayView] Fully confirming previous pending delete: \(existingTask.title)")
             modelContext.delete(existingTask)
+            try? modelContext.save()
         }
 
-        // Store new task for potential undo
+        // Delete from Firebase IMMEDIATELY (can restore on undo)
+        print("[TodayView] Deleting from Firebase immediately: \(task.title)")
+        FirebaseSyncService.shared.deleteTodo(task)
+
+        // Cancel notification
+        NotificationService.shared.cancelNotification(for: task.id)
+
+        // Store task for potential undo (keep reference but hide from UI)
         pendingDeleteTask = task
+        print("[TodayView] Task deleted from Firebase, showing undo toast")
 
         // Show the toast
         withAnimation(.spring(response: 0.3)) {
@@ -284,6 +299,15 @@ struct TodayView: View {
     }
 
     private func undoDelete() {
+        if let task = pendingDeleteTask {
+            // Restore to Firebase since we deleted immediately
+            print("[TodayView] Undo requested - restoring task to Firebase: \(task.title)")
+            FirebaseSyncService.shared.pushTodo(task)
+
+            // Re-schedule notification if applicable
+            NotificationService.shared.scheduleNotification(for: task)
+        }
+
         withAnimation(.spring(response: 0.3)) {
             pendingDeleteTask = nil
             showUndoToast = false
@@ -291,21 +315,26 @@ struct TodayView: View {
     }
 
     private func confirmDelete() {
+        print("[TodayView] confirmDelete called")
         if let task = pendingDeleteTask {
-            // Cancel any scheduled notification
-            NotificationService.shared.cancelNotification(for: task.id)
+            print("[TodayView] Confirming delete for task: \(task.title) (id: \(task.id.uuidString))")
 
+            // Firebase delete already happened in deleteTask(), just clean up local SwiftData
             withAnimation(.spring(response: 0.3)) {
                 modelContext.delete(task)
                 pendingDeleteTask = nil
                 showUndoToast = false
             }
 
-            // Save and refresh widget immediately
+            // Save locally
             try? modelContext.save()
+            print("[TodayView] Local delete confirmed")
+
             #if os(iOS)
             WidgetCenter.shared.reloadAllTimelines()
             #endif
+        } else {
+            print("[TodayView] confirmDelete called but pendingDeleteTask is nil")
         }
     }
 
@@ -370,6 +399,10 @@ struct TodayView: View {
         } else {
             task.sortOrder = visibleTasks[destIdx].sortOrder - 1
         }
+
+        // Push reorder change to Firebase
+        task.updatedAt = Date()
+        FirebaseSyncService.shared.pushTodo(task)
     }
 }
 

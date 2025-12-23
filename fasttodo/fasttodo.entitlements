@@ -18,5 +18,7 @@
 	<array>
 		<string>group.com.gill.fasttodo</string>
 	</array>
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>

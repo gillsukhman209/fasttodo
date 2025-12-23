@@ -191,11 +191,13 @@ struct UpcomingView: View {
     // MARK: - Actions
 
     private func syncData() {
-        // Trigger CloudKit sync by saving context
-        try? modelContext.save()
-        #if os(iOS)
-        WidgetCenter.shared.reloadAllTimelines()
-        #endif
+        Task {
+            // Force fetch from Firebase then push local changes
+            await FirebaseSyncService.shared.syncAllTodos(Array(allTasks))
+            #if os(iOS)
+            WidgetCenter.shared.reloadAllTimelines()
+            #endif
+        }
     }
 
     private func triggerSync() {
@@ -212,13 +214,20 @@ struct UpcomingView: View {
     }
 
     private func deleteTask(_ task: TodoItem) {
-        // If there's already a pending delete, confirm it first
+        // If there's already a pending delete, fully confirm it first
         if let existingTask = pendingDeleteTask {
             NotificationService.shared.cancelNotification(for: existingTask.id)
             modelContext.delete(existingTask)
+            try? modelContext.save()
         }
 
-        // Store new task for potential undo
+        // Delete from Firebase IMMEDIATELY (can restore on undo)
+        FirebaseSyncService.shared.deleteTodo(task)
+
+        // Cancel notification
+        NotificationService.shared.cancelNotification(for: task.id)
+
+        // Store task for potential undo (keep reference but hide from UI)
         pendingDeleteTask = task
         withAnimation(.spring(response: 0.3)) {
             showUndoToast = true
@@ -226,6 +235,14 @@ struct UpcomingView: View {
     }
 
     private func undoDelete() {
+        if let task = pendingDeleteTask {
+            // Restore to Firebase since we deleted immediately
+            FirebaseSyncService.shared.pushTodo(task)
+
+            // Re-schedule notification if applicable
+            NotificationService.shared.scheduleNotification(for: task)
+        }
+
         withAnimation(.spring(response: 0.3)) {
             pendingDeleteTask = nil
             showUndoToast = false
@@ -234,14 +251,18 @@ struct UpcomingView: View {
 
     private func confirmDelete() {
         if let task = pendingDeleteTask {
-            // Cancel any scheduled notification
-            NotificationService.shared.cancelNotification(for: task.id)
-
+            // Firebase delete already happened in deleteTask(), just clean up local SwiftData
             withAnimation(.spring(response: 0.3)) {
                 modelContext.delete(task)
                 pendingDeleteTask = nil
                 showUndoToast = false
             }
+
+            try? modelContext.save()
+
+            #if os(iOS)
+            WidgetCenter.shared.reloadAllTimelines()
+            #endif
         }
     }
 }

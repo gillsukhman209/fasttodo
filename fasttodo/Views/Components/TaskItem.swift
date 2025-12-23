@@ -297,8 +297,10 @@ struct TaskItem: View {
             NotificationService.shared.scheduleNotification(for: task)
         }
 
-        // Save and refresh widget immediately
+        // Save locally and push to Firebase
         try? modelContext.save()
+        FirebaseSyncService.shared.pushTodo(task)
+
         #if os(iOS)
         WidgetCenter.shared.reloadAllTimelines()
         #endif

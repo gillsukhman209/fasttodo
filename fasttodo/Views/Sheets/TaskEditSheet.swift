@@ -228,8 +228,10 @@ struct TaskEditSheet: View {
         // Update notification (cancel old, schedule new if applicable)
         NotificationService.shared.updateNotification(for: task)
 
-        // Save and refresh widget immediately
+        // Save locally and push to Firebase
         try? modelContext.save()
+        FirebaseSyncService.shared.pushTodo(task)
+
         #if os(iOS)
         WidgetCenter.shared.reloadAllTimelines()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
