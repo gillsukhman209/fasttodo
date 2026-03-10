@@ -8,7 +8,7 @@ import SwiftData
 
 struct AddTaskIntent: AppIntent {
     static var title: LocalizedStringResource = "Add Task"
-    static var description = IntentDescription("Add a new task to FastTodo")
+    static var description = IntentDescription("Add a new task to Ripple")
 
     @Parameter(title: "Task", description: "What do you need to do? e.g. 'Buy milk tomorrow at 3pm'")
     var taskText: String
