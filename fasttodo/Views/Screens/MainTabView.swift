@@ -7,18 +7,21 @@ struct MainTabView: View {
     enum Tab: String, CaseIterable {
         case today
         case upcoming
+        case calendar
 
         var title: String {
             switch self {
             case .today: return "Today"
             case .upcoming: return "Upcoming"
+            case .calendar: return "Calendar"
             }
         }
 
         var icon: String {
             switch self {
             case .today: return "sun.max.fill"
-            case .upcoming: return "calendar"
+            case .upcoming: return "text.line.first.and.arrowtriangle.forward"
+            case .calendar: return "calendar"
             }
         }
     }
@@ -34,9 +37,15 @@ struct MainTabView: View {
 
             UpcomingView()
                 .tabItem {
-                    Label("Upcoming", systemImage: "calendar")
+                    Label("Upcoming", systemImage: "text.line.first.and.arrowtriangle.forward")
                 }
                 .tag(Tab.upcoming)
+
+            CalendarView()
+                .tabItem {
+                    Label("Calendar", systemImage: "calendar")
+                }
+                .tag(Tab.calendar)
         }
         .tint(Theme.Colors.accent)
         #else
@@ -83,6 +92,8 @@ struct MainTabView: View {
                     TodayView()
                 case .upcoming:
                     UpcomingView()
+                case .calendar:
+                    CalendarView()
                 }
             }
         }
